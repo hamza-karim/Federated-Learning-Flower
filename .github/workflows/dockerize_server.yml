@@ -34,7 +34,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./fl_server/docker/Dockerfile
+          file: ./FL_server/docker/Dockerfile
           push: true
           tags: hamza-karim/fl-server:latest
           build-args: REPO_URL=https://github.com/${{ env.OWNER_LOWER }}/${{ env.REPO_LOWER }}
