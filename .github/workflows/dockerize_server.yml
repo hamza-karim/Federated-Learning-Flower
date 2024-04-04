@@ -33,7 +33,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
-          context: .
+          context: ./FL_server
           file: ./FL_server/docker/Dockerfile
           push: true
           tags: hamza-karim/fl-server:latest
