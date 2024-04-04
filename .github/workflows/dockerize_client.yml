@@ -30,9 +30,6 @@ jobs:
       - name: lowering case of owner
         run: echo "OWNER_LOWER=$(echo ${{ github.owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Print Repository Lowercase
-        run: echo "Repository Lowercase: ${{ env.REPO_LOWER }}"
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
         with:
