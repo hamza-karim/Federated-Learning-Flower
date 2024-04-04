@@ -39,6 +39,6 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: true
-          tags: hamza-karim/FL-client:latest
+          tags: hamza-karim/fl-client:latest
           build-args: REPO_URL=https://github.com/${{ env.OWNER_LOWER }}/${{ env.REPO_LOWER }}
           platforms: linux/amd64,linux/arm64/v8
