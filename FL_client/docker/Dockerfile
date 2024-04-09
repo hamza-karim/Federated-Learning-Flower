@@ -1,3 +1,4 @@
+
 # Use an official Python runtime as a parent image
 FROM python:3.9-slim
 
@@ -15,7 +16,6 @@ RUN apt install nano
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["python", "fl.kmeans.py"]
+#ENTRYPOINT ["python", "fl.kmeans.py"]
 #ENTRYPOINT ["python", "LR.py"]
-
-#CMD ["/bin/bash"]
+CMD ["tail", "-f", "/dev/null"]
