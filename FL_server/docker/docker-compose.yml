@@ -3,7 +3,7 @@ version: '2'
 services:
 
   fl-server:
-    image: ghcr.io/decsresearch/flwr_server:latest
+    image: hamzakarim07/flwr_server:latest
     container_name: flwr-server
     ports:
       - "8080:8080"
