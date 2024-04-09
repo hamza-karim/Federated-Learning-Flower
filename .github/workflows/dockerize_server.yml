@@ -1,17 +1,17 @@
-name: Publish image to Docker Hub
-on:
-  [workflow_dispatch]
-
-jobs:
-  publish_image:
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout
-        uses: actions/checkout@v3
-      - name: build
-        run: |
-          docker build ./FL_server/docker -t hamzakarim07/flwr_server:latest
-      - name: publish
-        run: |
-          docker login -u hamzakarim07 -p ${{ secrets.DOCKER_HUB_TOKEN  }}
-          docker push hamzakarim07/flwr_server:latest
+#name: Publish image to Docker Hub
+#on:
+#  [workflow_dispatch]
+#
+#jobs:
+#  publish_image:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: checkout
+#        uses: actions/checkout@v3
+#      - name: build
+#        run: |
+#          docker build ./FL_server/docker -t hamzakarim07/flwr_server:latest
+#      - name: publish
+#        run: |
+#          docker login -u hamzakarim07 -p ${{ secrets.DOCKER_HUB_TOKEN  }}
+#          docker push hamzakarim07/flwr_server:latest
