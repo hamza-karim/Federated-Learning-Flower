@@ -10,7 +10,7 @@ jobs:
         uses: actions/checkout@v3
       - name: build
         run: |
-          docker build . -t hamzakarim07/flwr_client:latest
+          docker build ./FL_server/docker -t hamzakarim07/flwr_server:latest
       - name: publish
         run: |
           docker login -u hamzakarim07 -p ${{ secrets.DOCKER_HUB_TOKEN  }}
