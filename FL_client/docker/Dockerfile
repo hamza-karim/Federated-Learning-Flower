@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /app
 
 # Copy the current directory contents into the container at /app
-COPY src/ .
+COPY ../src/ .
 
 # Update package
 RUN apt update
