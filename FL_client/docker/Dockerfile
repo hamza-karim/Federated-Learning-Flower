@@ -1,4 +1,3 @@
-
 # Use an official Python runtime as a parent image
 FROM python:3.9-slim
 
@@ -8,12 +7,12 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /app
 
 # Copy the current directory contents into the container at /app
-#COPY ../src/ .
-COPY src/ .
+COPY FL_client/src/ /app/src
 
 # Update package
-RUN apt update
-RUN apt install nano
+RUN apt update && apt install -y nano
+
+COPY FL_client/docker/requirements.txt /app/
 
 RUN pip install --no-cache-dir -r requirements.txt
 
