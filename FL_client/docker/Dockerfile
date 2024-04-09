@@ -6,15 +6,20 @@ ENV PYTHONUNBUFFERED 1
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
+# Copy the source code
 COPY FL_client/src/ /app/src
 
 # Update package
 RUN apt update && apt install -y nano
 
-COPY FL_client/docker/requirements.txt /app/
+# Set the working directory to /app/src/
+WORKDIR /app/src
 
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Change working directory back to /app/
+WORKDIR /app
 
 #ENTRYPOINT ["python", "fl.kmeans.py"]
 #ENTRYPOINT ["python", "LR.py"]
