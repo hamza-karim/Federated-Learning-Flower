@@ -1,7 +1,8 @@
 name: Publish image to Docker Hub Server
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:  # Triggered manually
+#  push:
+#    branches: [main]
 
 jobs:
   build-and-push:
