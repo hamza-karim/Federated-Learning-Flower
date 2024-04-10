@@ -1,4 +1,4 @@
-name: Publish image to Docker Hub
+name: Publish image to Docker Hub Client
 on:
   push:
     branches: [main]
