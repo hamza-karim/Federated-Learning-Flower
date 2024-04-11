@@ -3,8 +3,12 @@ FROM python:3.9-slim
 
 ENV PYTHONUNBUFFERED 1
 
-# Install pkg-config
-RUN apt-get update && apt-get install -y pkg-config
+# Install necessary dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        pkg-config \
+        libhdf5-dev \
+        nano
 
 # Set the working directory in the container
 WORKDIR /app
