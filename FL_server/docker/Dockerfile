@@ -5,9 +5,9 @@ ENV PYTHONUNBUFFERED 1
 
 # Install necessary dependencies
 RUN apt update
-RUN apt install build-essential
-RUN apt install pkg-config
-RUN apt install libhdf5-dev
+RUN apt install -y build-essential
+RUN apt install -y pkg-config
+RUN apt install -y libhdf5-dev
 RUN apt install nano
 
 # Set the working directory in the container
