@@ -3,12 +3,12 @@ FROM python:3.9-slim
 
 ENV PYTHONUNBUFFERED 1
 
-# Install necessary dependencies
-RUN apt update
-RUN apt install -y build-essential
-RUN apt install -y pkg-config
-RUN apt install -y libhdf5-dev
-RUN apt install nano
+## Install necessary dependencies
+#RUN apt update
+#RUN apt install -y build-essential
+#RUN apt install -y pkg-config
+#RUN apt install -y libhdf5-dev
+#RUN apt install nano
 
 # Set the working directory in the container
 WORKDIR /app
@@ -19,12 +19,15 @@ COPY FL_server/src/ /app/src
 # Set the working directory to /app/src/
 WORKDIR /app/src
 
+# Update package
+RUN apt update
+RUN apt install nano
+
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Change working directory back to /app/
 WORKDIR /app
 
-#ENTRYPOINT ["python", "fl.kmeans.py"]
-#ENTRYPOINT ["python", "LR.py"]
+#ENTRYPOINT ["python", "server.py"]
 CMD ["tail", "-f", "/dev/null"]
