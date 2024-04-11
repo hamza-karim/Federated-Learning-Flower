@@ -16,6 +16,7 @@ WORKDIR /app/src
 RUN apt update
 RUN apt install nano
 RUN apt install -y pkg-config
+RUN apt install -y libhdf5-dev
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
