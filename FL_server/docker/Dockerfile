@@ -4,21 +4,17 @@ FROM python:3.9-slim
 ENV PYTHONUNBUFFERED 1
 
 # Install necessary dependencies
-RUN apt-get update && \
-    apt-get install -y \
-        build-essential \
-        pkg-config \
-        libhdf5-dev \
-        nano
+RUN apt update
+RUN apt install build-essential
+RUN apt install pkg-config
+RUN apt install libhdf5-dev
+RUN apt install nano
 
 # Set the working directory in the container
 WORKDIR /app
 
 # Copy the source code
 COPY FL_server/src/ /app/src
-
-# Update package
-RUN apt update && apt install -y nano
 
 # Set the working directory to /app/src/
 WORKDIR /app/src
