@@ -3,13 +3,6 @@ FROM python:3.9-slim
 
 ENV PYTHONUNBUFFERED 1
 
-## Install necessary dependencies
-#RUN apt update
-#RUN apt install -y build-essential
-#RUN apt install -y pkg-config
-#RUN apt install -y libhdf5-dev
-#RUN apt install nano
-
 # Set the working directory in the container
 WORKDIR /app
 
@@ -22,6 +15,7 @@ WORKDIR /app/src
 # Update package
 RUN apt update
 RUN apt install nano
+RUN apt install -y pkg-config
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
