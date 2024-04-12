@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /app
 
 # Copy the source code
-COPY FL_server/src/ /app/src
+COPY FL_client/src/ /app/src
 
 # Set the working directory to /app/src/
 WORKDIR /app/src
