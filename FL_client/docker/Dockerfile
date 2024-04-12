@@ -19,12 +19,12 @@ WORKDIR /app/src
 #RUN apt install -y libhdf5-dev
 
 # Update package lists and install necessary build tools and dependencies
-RUN apt-get update && apt-get install -y \
-    nano \
-    pkg-config \
-    libhdf5-dev \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+#RUN apt-get update && apt-get install -y \
+#    nano \
+#    pkg-config \
+#    libhdf5-dev \
+#    gcc \
+#    && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
