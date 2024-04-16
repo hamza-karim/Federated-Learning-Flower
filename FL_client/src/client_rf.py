@@ -1,4 +1,5 @@
 import os
+import joblib
 import argparse
 import flwr as fl
 import numpy as np
@@ -41,6 +42,7 @@ def load_dataset():
             print(df.head())
             print("Column names:")
             print(df.columns)
+            df.drop(columns=["datetimeCST"], inplace=True)
     X = df.iloc[:, :-1]
     y = df.iloc[:, -1]
     return X, y
@@ -151,3 +153,6 @@ if __name__ == "__main__":
 
     # Start Client
     fl.client.start_numpy_client(server_address=SERVER_ADDR, client=flower_client)
+
+    # Save the trained model to a file
+    joblib.dump(model, 'trained_model.joblib')
