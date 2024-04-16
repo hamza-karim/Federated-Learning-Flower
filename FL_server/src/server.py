@@ -40,17 +40,25 @@ parser.add_argument(
 
 
 def weighted_average(metrics: List[Tuple[int, fl.common.Metrics]]) -> fl.common.Metrics:
-    accuracies = [num_examples * m["mape"] for num_examples, m in metrics]
-    examples = [num_examples for num_examples, _ in metrics]
-    return {"mape": sum(accuracies) / sum(examples)}
+    if not metrics:
+        return {}  # Return an empty dictionary if there are no metrics
 
+    num_examples_total = sum(num_examples for num_examples, _ in metrics)
+    aggregated_metrics = {key: 0 for key in metrics[0][1]}  # Initialize aggregated metrics dictionary
 
-def fit_config(server_round: int):
-    config = {
-        "epochs": 3,
-        "batch_size": 16,
-    }
-    return config
+    for num_examples, metric in metrics:
+        for key in metric:
+            if key == "accuracy":  # Check if the key is accuracy
+                aggregated_metrics[key] += metric[key]  # Aggregate accuracy metric
+            else:
+                aggregated_metrics[key] += num_examples * metric[key]  # Aggregate other metrics
+
+    # Calculate weighted average
+    for key in aggregated_metrics:
+        if key != "accuracy":
+            aggregated_metrics[key] /= num_examples_total
+
+    return aggregated_metrics
 
 
 def main():
@@ -69,7 +77,7 @@ def main():
         fraction_fit=sample_fraction,
         fraction_evaluate=sample_fraction,
         min_fit_clients=min_num_clients,
-        on_fit_config_fn=fit_config,
+        on_fit_config_fn=None,
         evaluate_metrics_aggregation_fn=weighted_average,
     )
 

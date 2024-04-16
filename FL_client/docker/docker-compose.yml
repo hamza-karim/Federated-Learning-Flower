@@ -5,4 +5,4 @@ services:
   fl-client:
     image: hamzakarim07/flwr_client:latest
     container_name: flwr-client-${devicename}
-    command: --ip=192.168.1.50 --folder=batch
+    #command: --ip=192.168.1.50 --folder=batch

@@ -33,5 +33,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 WORKDIR /app
 
 #ENTRYPOINT ["python", "fl.kmeans.py"]
-#ENTRYPOINT ["python", "LR.py"]
+#ENTRYPOINT ["python", "rf.py"]
 CMD ["tail", "-f", "/dev/null"]
