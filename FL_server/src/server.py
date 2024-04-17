@@ -1,12 +1,13 @@
 import argparse
 from typing import Dict
 import flwr as fl
+import numpy as np
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Flower Embedded devices")
     parser.add_argument("--ip", help="Provide the IP address", default="0.0.0.0", required=False)
     parser.add_argument("--port", help="Provide the Port address", default="8080", required=False)
-    parser.add_argument("--num_rounds", help="Number of rounds of federated learning (default: 5)", type=int, default=5, required=False)
+    parser.add_argument("--num_rounds", help="Number of rounds of federated learning (default: 5)", type=int, default=2, required=False)
     parser.add_argument("--sample_fraction", help="Fraction of available clients used for fit/evaluate (default: 1.0)", type=float, default=1.0, required=False)
     parser.add_argument("--min_num_clients", help="Minimum number of available clients required for sampling (default: 2)", type=int, default=2, required=False)
     return parser.parse_args()
@@ -36,6 +37,20 @@ def aggregate_metrics(results) -> Dict:
 
     return aggregated_metrics
 
+class SaveModelStrategy(fl.server.strategy.FedAvg):
+    def aggregate_fit(
+        self,
+        rnd: int,
+        results,
+        failures,
+    ) -> np.ndarray:
+        weights = super().aggregate_fit(rnd, results, failures)
+        if weights is not None:
+            # Save weights
+            print(f"Saving round {rnd} weights...")
+            np.savez(f"round-{rnd}-weights.npz", *weights)
+        return weights
+
 if __name__ == "__main__":
     args = parse_arguments()
     print("Server Configuration:")
@@ -51,7 +66,7 @@ if __name__ == "__main__":
     min_num_clients = args.min_num_clients
 
     # Building Strategy
-    strategy = fl.server.strategy.FedAvg(
+    strategy = SaveModelStrategy(
         fraction_fit=sample_fraction,
         fraction_evaluate=sample_fraction,
         min_fit_clients=min_num_clients,
