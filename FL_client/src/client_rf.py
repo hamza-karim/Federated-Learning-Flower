@@ -23,17 +23,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--ip', help='Provide the IP address', default="0.0.0.0", required=False)
 parser.add_argument('--port', help='Provide the Port address', default="8080", required=False)
 parser.add_argument('--id', help='Provide the client id', default="1", required=True)
-parser.add_argument('--folder', help='Provide the Dataset folder', default='Client_1', type=str, required=False)
+#parser.add_argument('--folder', help='Provide the Dataset folder', default='Client_1', type=str, required=False)
+parser.add_argument('--agg', help='Provide the aggregation time', default="1s", required=False)
 args = parser.parse_args()
 
 # Constants
 SERVER_ADDR = f"{args.ip}:{args.port}"
-FOLDER_LOC = args.folder
+FOLDER_LOC = f"Client_{args.id}"
 CLIENT_ID = args.id
-
+AGGREGATION = args.agg
 # Load Dataset Function
 def load_dataset():
-    folder_path = os.path.join('.', 'data', FOLDER_LOC)
+    folder_path = os.path.join('.', 'data', FOLDER_LOC, AGGREGATION)
     for filename in os.listdir(folder_path):
         if filename.endswith('.csv'):
             file_path = os.path.join(folder_path, filename)
