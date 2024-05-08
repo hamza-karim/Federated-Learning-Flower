@@ -32,5 +32,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Change working directory back to /app/
 WORKDIR /app
 
-#ENTRYPOINT ["python", "server.py"]
+#ENTRYPOINT ["python", "server_RF.py"]
 CMD ["tail", "-f", "/dev/null"]
