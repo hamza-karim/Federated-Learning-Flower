@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--ip', help='Provide the IP address', default="0.0.0.0", required=False)
 parser.add_argument('--port', help='Provide the Port address', default="8080", required=False)
 parser.add_argument('--id', help='Provide the client id', default="1", required=True)
-parser.add_argument('--folder', help='Provide the Dataset folder', default='Client_1', type=str, required=False)
+parser.add_argument('--folder', help='Provide the Dataset folder', default='Client_1_RF', type=str, required=False)
 args = parser.parse_args()
 
 # Constants
