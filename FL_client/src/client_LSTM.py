@@ -28,23 +28,17 @@ CLIENT_ID = args.id
 # Load Dataset Function
 def load_dataset():
     folder_path = os.path.join('.', 'data', FOLDER_LOC)
-    df = pd.DataFrame()  # Initialize an empty DataFrame
     for filename in os.listdir(folder_path):
         if filename.endswith('.csv'):
             file_path = os.path.join(folder_path, filename)
             dataframe = pd.read_csv(file_path)
             dataframe['datetimestamp'] = pd.to_datetime(dataframe['datetimestamp']) # Convert 'datetimestamp' column to datetime
-            df_temp = dataframe[['datetimestamp', 'Hz_mod_anomaly', 'mod_BIN']]  # Take only 'datetimestamp', 'Hz_mod_anomaly', and 'mod_BIN' columns
-            df = pd.concat([df, df_temp], axis=0)  # Concatenate the DataFrame read from CSV file to df
-
-    df.set_index('datetimestamp', inplace=True) # Set 'datetimestamp' as index
+            df = dataframe[['datetimestamp', 'Hz_mod_anomaly', 'mod_BIN']]  # Take only 'datetimestamp', 'Hz_mod_anomaly', and 'mod_BIN' columns
+            df.set_index('datetimestamp', inplace=True)  # Set 'datetimestamp' as index
     print("First few rows of the DataFrame:")
     print(df.head())
     print("Column names:")
     print(df.columns)
-    # print start and end date
-    print("start date is:", df.index.min())
-    print("end date is:", df.index.max())
     return df
 
 
@@ -100,15 +94,15 @@ def preprocess_dataset(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, np.nda
 
         return np.array(x_values), np.array(y_values)
 
-    trainX, trainY = to_sequence(train[['Hz_mod_anomaly']], train['Hz_mod_anomaly'], seq_size)
-    testX, testY = to_sequence(test[['Hz_mod_anomaly']], test['Hz_mod_anomaly'], seq_size)
+    X_train, y_train = to_sequence(train[['Hz_mod_anomaly']], train['Hz_mod_anomaly'], seq_size)
+    X_test, y_test = to_sequence(test[['Hz_mod_anomaly']], test['Hz_mod_anomaly'], seq_size)
 
-    print("train X shape", trainX.shape)
-    print("train Y shape", trainY.shape)
-    print("test X shape", testX.shape)
-    print("test Y shape", testY.shape)
+    print("train X shape", X_train.shape)
+    print("train Y shape", y_train.shape)
+    print("test X shape", X_test.shape)
+    print("test Y shape", y_test.shape)
 
-    return trainX, trainY, testX, testY
+    return X_train, y_train, X_test, y_test
 
 # Get Parameters Function
 def get_params(model: Sequential) -> List[np.ndarray]:
@@ -163,7 +157,7 @@ if __name__ == "__main__":
     # Load Dataset
     df = load_dataset()
     # Preprocess/split Dataset
-    trainX, trainY, testX, testY = preprocess_dataset(df)
+    X_train, y_train, X_test, y_test = preprocess_dataset(df)
 
     # Create and Compile Model
     model = Sequential()
@@ -177,10 +171,10 @@ if __name__ == "__main__":
 
     # Create Flower Client
     flower_client = FlowerClient()
-    flower_client.X_train = trainX
-    flower_client.y_train = trainY
-    flower_client.X_test = testX
-    flower_client.y_test = testY
+    flower_client.X_train = X_train
+    flower_client.y_train = y_train
+    flower_client.X_test = X_test
+    flower_client.y_test = y_test
     flower_client.model = model
 
     # Start Client
