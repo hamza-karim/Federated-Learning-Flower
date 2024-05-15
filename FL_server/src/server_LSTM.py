@@ -17,20 +17,45 @@ def get_round_config(server_round: int) -> Dict:
     return {"server_round": server_round}
 
 # Aggregate metrics and calculate weighted averages
+# def aggregate_metrics(results) -> Dict:
+#     if not results:
+#         return {}
+#
+#     total_samples = 0
+#     aggregated_metrics = {"MAE": 0}
+#
+#     # Extracting values from the results
+#     for samples, metrics in results:
+#         aggregated_metrics["MAE"] += metrics.get("MAE", 0) * samples
+#         total_samples += samples
+#
+#     # Calculate weighted average MAE
+#     aggregated_metrics["MAE"] = round(aggregated_metrics["MAE"] / total_samples, 6)
+#
+#     return aggregated_metrics
+
 def aggregate_metrics(results) -> Dict:
     if not results:
         return {}
 
     total_samples = 0
     aggregated_metrics = {"MAE": 0}
+    client_maes = []  # Store individual MAE values for each client
 
     # Extracting values from the results
     for samples, metrics in results:
-        aggregated_metrics["MAE"] += metrics.get("MAE", 0) * samples
+        mae = metrics.get("MAE", 0)
+        client_maes.append(mae)  # Store individual client MAE
+        aggregated_metrics["MAE"] += mae * samples
         total_samples += samples
 
     # Calculate weighted average MAE
     aggregated_metrics["MAE"] = round(aggregated_metrics["MAE"] / total_samples, 6)
+
+    # Print individual client MAE values
+    print("Individual client MAEs:")
+    for i, mae in enumerate(client_maes):
+        print(f"Client {i + 1}: MAE = {mae}")
 
     return aggregated_metrics
 
