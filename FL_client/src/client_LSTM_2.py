@@ -25,6 +25,8 @@ SERVER_ADDR = f"{args.ip}:{args.port}"
 FOLDER_LOC = args.folder
 CLIENT_ID = args.id
 
+temp_loss = []
+temp_mape = []
 # Load Dataset Function
 def load_dataset():
     folder_path = os.path.join('.', 'data', FOLDER_LOC)
@@ -104,68 +106,41 @@ def preprocess_dataset(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, np.nda
 
     return X_train, y_train, X_test, y_test
 
-# Flower Client Class
-# class FlowerClient(fl.client.NumPyClient):
-#
-#     def __init__(self):
-#         self.X_train = None
-#         self.y_train = None
-#         self.X_test = None
-#         self.y_test = None
-#         self.model = None
-#
-#     def fit(self, parameters, config):
-#         # No parameter adjustment needed for LSTM model
-#         self.model.fit(self.X_train, self.y_train, epochs=5, batch_size=100, validation_split=0.2, verbose=1)
-#         print(f"Training finished for round {config['server_round']}.")
-#
-#         # Evaluate on validation set
-#         loss = self.model.evaluate(self.X_test, self.y_test)
-#         return self.model.get_weights(), len(self.X_train), {"loss": loss}
-#
-#     def evaluate(self, parameters, config):
-#         self.model.set_weights(parameters)
-#         loss = self.model.evaluate(self.X_test, self.y_test)
-#         return loss, len(self.X_test), {"loss": loss}
 
 class FlowerClient(fl.client.NumPyClient):
-
     def __init__(self):
         self.X_train = None
         self.y_train = None
         self.X_test = None
         self.y_test = None
         self.model = None
-
+    def get_parameters(self, config):
+        return model.get_weights()
     def fit(self, parameters, config):
-        # No parameter adjustment needed for LSTM model
-        self.model.fit(self.X_train, self.y_train, epochs=5, batch_size=100, validation_split=0.2, verbose=1)
-        print(f"Training finished for round {config['server_round']}.")
-
-        # Calculate MAE for training prediction
-        train_predict = self.model.predict(self.X_train)
-        train_mae = np.mean(np.abs(train_predict - self.X_train), axis=1)
-        # Print the mean of training MAE
-        print("Mean of Training MAE:", np.mean(train_mae))
-
-        # Calculate histogram values
-        hist, bins = np.histogram(train_mae, bins=30)
-
-        # Print histogram values
-        print("Histogram of Mean Absolute Error (MAE) in Training Prediction:")
-        for i in range(len(hist)):
-            print(f"Bin {i + 1}: MAE Range {bins[i]:.2f}-{bins[i + 1]:.2f}, Frequency: {hist[i]}")
-
-        # Evaluate on validation set
-        loss = self.model.evaluate(self.X_test, self.y_test)
-        print("Validation loss:", loss)  # Print validation loss (MAE)
-        return self.model.get_weights(), len(self.X_train), {"loss": loss}
+        model.set_weights(parameters)
+        r= self.model.fit(self.X_train, self.y_train, epochs=1, batch_size=100, validation_split=0.2, verbose=1)
+        hist = r.history
+        print("Fit history : ", hist)
+        return self.model.get_weights(), len(self.X_train), {}
 
     def evaluate(self, parameters, config):
-        self.model.set_weights(parameters)
-        loss = self.model.evaluate(self.X_test, self.y_test)
-        print("Test loss:", loss)  # Print test loss (MAE)
-        return loss, len(self.X_test), {"loss": loss}
+        model.set_weights(parameters)
+        # loss = self.model.evaluate(self.X_test, self.y_test, verbose=0)
+        eval_loss, eval_mape = self.model.evaluate(X_test, y_test)
+
+        temp_loss.append(eval_loss)
+        temp_mape.append(eval_mape)
+
+        print(f"Eval Loss: {eval_loss} || Eval MAPE: {eval_mape}")
+        return eval_loss, len(X_test), {"mape": eval_mape}
+
+        # # Compute mae separately
+        # train_predict = self.model.predict(self.X_test)
+        # test_mae = np.mean(np.abs(train_predict - self.X_test), axis=1)
+        # mean_test_mae = np.mean(test_mae)
+        # print("Loss:", loss)
+        # print("Mean Training MAE:", mean_test_mae)
+        # return loss, len(X_train), {"mean_train_mae": mean_test_mae}
 
 
 # Main Function
@@ -183,7 +158,7 @@ if __name__ == "__main__":
     model.add(LSTM(64, activation='relu', return_sequences=True))
     model.add(LSTM(128, activation='relu', return_sequences=True))
     model.add(TimeDistributed(Dense(X_train.shape[2])))
-    model.compile(optimizer='adam', loss='mae')
+    model.compile(optimizer='adam', loss='mae', metrics=["mape"])
 
     # Create Flower Client
     flower_client = FlowerClient()

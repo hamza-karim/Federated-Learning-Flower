@@ -7,7 +7,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Flower Embedded devices")
     parser.add_argument("--ip", help="Provide the IP address", default="0.0.0.0", required=False)
     parser.add_argument("--port", help="Provide the Port address", default="8080", required=False)
-    parser.add_argument("--num_rounds", help="Number of rounds of federated learning (default: 5)", type=int, default=2, required=False)
+    parser.add_argument("--num_rounds", help="Number of rounds of federated learning (default: 5)", type=int, default=5, required=False)
     parser.add_argument("--sample_fraction", help="Fraction of available clients used for fit/evaluate (default: 1.0)", type=float, default=1.0, required=False)
     parser.add_argument("--min_num_clients", help="Minimum number of available clients required for sampling (default: 2)", type=int, default=2, required=False)
     return parser.parse_args()
@@ -34,28 +34,46 @@ def get_round_config(server_round: int) -> Dict:
 #
 #     return aggregated_metrics
 
+#def aggregate_metrics(results) -> Dict:
+#    if not results:
+#        return {}
+
+#    total_samples = 0
+#    aggregated_metrics = {"MAE": 0}
+#    client_maes = []  # Store individual MAE values for each client
+
+    # Extracting values from the results
+#    for samples, metrics in results:
+#        mae = metrics.get("MAE", 0)
+#        client_maes.append(mae)  # Store individual client MAE
+#        aggregated_metrics["MAE"] += mae * samples
+#        total_samples += samples
+
+    # Calculate weighted average MAE
+#    aggregated_metrics["MAE"] = round(aggregated_metrics["MAE"] / total_samples, 6)
+
+    # Print individual client MAE values
+#    print("Individual client MAEs:")
+#    for i, mae in enumerate(client_maes):
+#        print(f"Client {i + 1}: MAE = {mae}")
+
+#    return aggregated_metrics
+
 def aggregate_metrics(results) -> Dict:
     if not results:
         return {}
 
     total_samples = 0
-    aggregated_metrics = {"MAE": 0}
-    client_maes = []  # Store individual MAE values for each client
+    aggregated_metrics = {"mean_train_loss": 0, "mean_train_mae": 0}
 
-    # Extracting values from the results
     for samples, metrics in results:
-        mae = metrics.get("MAE", 0)
-        client_maes.append(mae)  # Store individual client MAE
-        aggregated_metrics["MAE"] += mae * samples
+        for key, value in metrics.items():
+            if key in aggregated_metrics:
+                aggregated_metrics[key] += value * samples
         total_samples += samples
 
-    # Calculate weighted average MAE
-    aggregated_metrics["MAE"] = round(aggregated_metrics["MAE"] / total_samples, 6)
-
-    # Print individual client MAE values
-    print("Individual client MAEs:")
-    for i, mae in enumerate(client_maes):
-        print(f"Client {i + 1}: MAE = {mae}")
+    for key in aggregated_metrics.keys():
+        aggregated_metrics[key] = round(aggregated_metrics[key] / total_samples, 6)
 
     return aggregated_metrics
 
