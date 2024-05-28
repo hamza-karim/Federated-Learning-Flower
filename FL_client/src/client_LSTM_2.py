@@ -4,7 +4,8 @@ import argparse
 import flwr as fl
 import numpy as np
 import pandas as pd
-from typing import List
+import random
+import tensorflow as tf
 from typing import Tuple
 from keras.models import Sequential
 from keras.layers import LSTM, RepeatVector, TimeDistributed, Dense
@@ -27,6 +28,12 @@ CLIENT_ID = args.id
 
 temp_loss = []
 temp_mape = []
+
+# Set random seed for reproducibility
+np.random.seed(42)
+random.seed(42)
+tf.random.set_seed(42)
+
 # Load Dataset Function
 def load_dataset():
     folder_path = os.path.join('.', 'data', FOLDER_LOC)
@@ -114,11 +121,12 @@ class FlowerClient(fl.client.NumPyClient):
         self.X_test = None
         self.y_test = None
         self.model = None
+
     def get_parameters(self, config):
         return model.get_weights()
     def fit(self, parameters, config):
         model.set_weights(parameters)
-        r= self.model.fit(self.X_train, self.y_train, epochs=1, batch_size=100, validation_split=0.2, verbose=1)
+        r= self.model.fit(self.X_train, self.y_train, epochs=5, batch_size=100, validation_split=0.2, verbose=1)
         hist = r.history
         print("Fit history : ", hist)
         return self.model.get_weights(), len(self.X_train), {}

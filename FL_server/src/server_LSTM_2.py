@@ -8,7 +8,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Flower Embedded devices")
     parser.add_argument("--ip", help="Provide the IP address", default="0.0.0.0", required=False)
     parser.add_argument("--port", help="Provide the Port address", default="8080", required=False)
-    parser.add_argument("--num_rounds", help="Number of rounds of federated learning (default: 5)", type=int, default=1, required=False)
+    parser.add_argument("--num_rounds", help="Number of rounds of federated learning (default: 5)", type=int, default=5, required=False)
     parser.add_argument("--sample_fraction", help="Fraction of available clients used for fit/evaluate (default: 1.0)", type=float, default=1.0, required=False)
     parser.add_argument("--min_num_clients", help="Minimum number of available clients required for sampling (default: 2)", type=int, default=2, required=False)
     return parser.parse_args()

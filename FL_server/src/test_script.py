@@ -1,48 +1,21 @@
+import joblib
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, RepeatVector, TimeDistributed, Dense
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
+from tensorflow.keras.models import load_model
 
-# Define the model architecture
-seq_size = 20
-model = Sequential()
-model.add(LSTM(128, activation='relu', input_shape=(seq_size, 1), return_sequences=True))
-model.add(LSTM(64, activation='relu', return_sequences=False))
-model.add(RepeatVector(seq_size))
-model.add(LSTM(64, activation='relu', return_sequences=True))
-model.add(LSTM(128, activation='relu', return_sequences=True))
-model.add(TimeDistributed(Dense(1)))
+# Load the pre-trained model
+model = joblib.load('trained_model_LSTM.joblib')
 
-# Load weights
-weights = np.load('round-7-weights.npz')
-model.set_weights([weights[key] for key in weights])
-
-# Load the first dataset
+# Load the datasets
 data1 = pd.read_csv('dataset/V2_25_Feb_3_60m_anomalous_data(pulse).csv')
-
-# Load the second dataset
 data2 = pd.read_csv('dataset/V1_25_Feb_180m_anomalous_data(gaussian).csv')
-
-# Combine the datasets
 combined_data = pd.concat([data1, data2], ignore_index=True)
 
 # Preprocess the combined dataset
 combined_data['datetimestamp'] = pd.to_datetime(combined_data['datetimestamp'])
-
-# Plot the combined dataset
-plt.figure(figsize=(10, 6))
-sns.lineplot(x='datetimestamp', y='Hz_mod_anomaly', data=combined_data)
-plt.xticks(rotation=45)
-plt.gcf().set_facecolor('white')
-plt.xlabel('Date')
-plt.ylabel('Hz_mod_anomaly')
-plt.title('Combined Dataset (Pulse + Gaussian)')
-plt.savefig('/app/src/combined_dataset.png')
-plt.close()
 
 # Convert the combined dataset into sequences
 def to_sequence(x, y, seq_size=1):
@@ -53,6 +26,7 @@ def to_sequence(x, y, seq_size=1):
         y_values.append(y.iloc[i+seq_size])
     return np.array(x_values), np.array(y_values)
 
+seq_size = 20
 combined_X, combined_Y = to_sequence(combined_data[['Hz_mod_anomaly']], combined_data['Hz_mod_anomaly'], seq_size)
 
 # Use the trained model to predict the reconstruction errors (MAPE) on the combined dataset
@@ -78,8 +52,7 @@ plt.ylabel('Mean Absolute Percentage Error (MAPE)')
 plt.title('Anomaly Detection on Combined Dataset (Pulse + Gaussian)')
 plt.legend()
 plt.xticks(rotation=45)
-plt.savefig('/app/src/anomaly_detection.png')
-plt.close()
+plt.show()
 
 # Identify anomalies based on the threshold
 combined_anomalies = anomaly_df[anomaly_df['anomaly'] == True]
@@ -93,8 +66,7 @@ plt.ylabel('Hz_mod_anomaly')
 plt.title('Anomaly Detection on New Combined Dataset (Pulse + Gaussian)')
 plt.legend()
 plt.xticks(rotation=45)
-plt.savefig('/app/src/anomalies.png')
-plt.close()
+plt.show()
 
 # Get the true labels
 true_labels = (combined_data['mod_BIN'][seq_size:] != 0).astype(int)
@@ -108,8 +80,7 @@ sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=['Normal
 plt.xlabel('Predicted Labels')
 plt.ylabel('True Labels')
 plt.title('Confusion Matrix')
-plt.savefig('/app/src/confusion_matrix.png')
-plt.close()
+plt.show()
 
 # Initialize counts for metrics
 TP = conf_matrix[1, 1]
