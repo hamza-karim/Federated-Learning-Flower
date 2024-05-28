@@ -1,3 +1,5 @@
+# Muhammad Hamza Karim
+
 import argparse
 from typing import Dict
 from typing import Dict, List, Tuple
@@ -36,6 +38,22 @@ class SaveModelStrategy(fl.server.strategy.FedAvg):
             print(f"Saving round {rnd} aggregated_weights...")
             np.savez(f"round-{rnd}-weights.npz", *aggregated_weights)
         return aggregated_weights
+
+
+# class SaveModelStrategy(fl.server.strategy.FedAvg):
+#     def aggregate_fit(self, rnd, results, failures):
+#         aggregated_weights = super().aggregate_fit(rnd, results, failures)
+#         if aggregated_weights is not None:
+#             # Save aggregated_weights
+#             print(f"Saving round {rnd} aggregated_weights...")
+#             # Extract weights from results
+#             weights_list = [result.parameters for result in results]
+#             for i, weight in enumerate(weights_list):
+#                 print(f"Weight {i} shape: {weight.shape}")
+#                 print(f"First few values of weight {i}: {weight.flatten()[:5]}")
+#             np.savez(f"round-{rnd}-weights.npz", *weights_list)
+#         return aggregated_weights
+
 
 if __name__ == "__main__":
     args = parse_arguments()

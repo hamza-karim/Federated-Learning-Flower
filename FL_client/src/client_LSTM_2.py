@@ -1,3 +1,5 @@
+# Muhammad Hamza Karim
+
 import os
 import joblib
 import argparse
@@ -6,10 +8,12 @@ import numpy as np
 import pandas as pd
 import random
 import tensorflow as tf
+from tensorflow import keras
 from typing import Tuple
 from keras.models import Sequential
 from keras.layers import LSTM, RepeatVector, TimeDistributed, Dense
 import warnings
+import matplotlib.pyplot as plt
 
 warnings.simplefilter('ignore')
 
@@ -168,6 +172,18 @@ if __name__ == "__main__":
     model.add(TimeDistributed(Dense(X_train.shape[2])))
     model.compile(optimizer='adam', loss='mae', metrics=["mape"])
 
+    # # Another model (Dr.Siby)
+    # model = Sequential()
+    #
+    # # Encoder
+    # model.add(LSTM(100, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2])))
+    #
+    # # Decoder
+    # model.add(keras.layers.RepeatVector(X_train.shape[1]))
+    # model.add(LSTM(100, activation='relu', return_sequences=True))
+    # model.add(TimeDistributed(Dense(X_train.shape[2])))
+    # model.compile(optimizer='adam', loss='mae', metrics=["mape"])
+
     # Create Flower Client
     flower_client = FlowerClient()
     flower_client.X_train = X_train
@@ -179,5 +195,71 @@ if __name__ == "__main__":
     # Start Client
     fl.client.start_numpy_client(server_address=SERVER_ADDR, client=flower_client)
 
-    # Save the trained model to a file
+    # Save the trained model
     joblib.dump(model, 'trained_model_LSTM.joblib')
+
+################ CALCULATING THE MAE AND MAPE FOR TRAIN AND TEST FOR THRESHOLDING ###################
+
+    # Calculate MAE for training prediction
+    trainPredict = model.predict(X_train)
+    trainMAE = np.mean(np.abs(trainPredict - X_train), axis=1)
+    print("Mean of Train MAE:", np.mean(trainMAE))
+
+    # Plot
+    plt.figure(figsize=(8, 6))
+    plt.hist(trainMAE, bins=30)
+    plt.xlabel('Mean Absolute Error (MAE)')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Mean Absolute Error (MAE) in Training Prediction')
+    plt.savefig('train_mae_histogram.png')
+    plt.close()
+
+    # Calculate MAPE for each sample
+    trainActual = X_train
+    trainMAPE = np.mean(np.abs(trainPredict - trainActual) / trainActual, axis=1) * 100
+
+    # Print the mean of MAPE
+    print("Mean of Train MAPE:", np.mean(trainMAPE))
+
+    # Plot
+    plt.figure(figsize=(8, 6))
+    plt.hist(trainMAPE, bins=30)
+    plt.xlabel('Mean Absolute Percentage Error (MAPE)')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Mean Absolute Percentage Error (MAPE) in Training Prediction')
+    plt.savefig('train_mape_histogram.png')
+    plt.close()
+
+    # Calculate reconstruction loss (MAE) for testing dataset
+    testPredict = model.predict(X_test)
+    testMAE = np.mean(np.abs(testPredict - X_test), axis=1)
+
+    # Print the mean of test MAE
+    print("Mean of Test MAE:", np.mean(testMAE))
+
+    # Plot histogram
+    plt.figure(figsize=(8, 6))
+    plt.hist(testMAE, bins=30)
+    plt.xlabel('Test MAE')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Mean Absolute Error (MAE) in Test Prediction')
+    plt.savefig('test_mae_histogram.png')
+    plt.close()
+
+    # Calculate MAPE for each sample
+    testActual = X_test
+    testMAPE = np.mean(np.abs(testPredict - testActual) / testActual, axis=1) * 100
+
+    # Print the mean of MAPE
+    print("Mean of Test MAPE:", np.mean(testMAPE))
+
+    # Plot histogram of MAPE
+    plt.figure(figsize=(8, 6))
+    plt.hist(testMAPE, bins=30)
+    plt.xlabel('Mean Absolute Percentage Error (MAPE)')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Mean Absolute Percentage Error (MAPE) in Test Prediction')
+    plt.savefig('test_mae_histogram.png')
+    plt.close()
+
+####################################################################################################
