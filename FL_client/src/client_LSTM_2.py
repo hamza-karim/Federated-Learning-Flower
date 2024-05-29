@@ -259,7 +259,7 @@ if __name__ == "__main__":
     plt.xlabel('Mean Absolute Percentage Error (MAPE)')
     plt.ylabel('Frequency')
     plt.title('Histogram of Mean Absolute Percentage Error (MAPE) in Test Prediction')
-    plt.savefig('test_mae_histogram.png')
+    plt.savefig('test_mape_histogram.png')
     plt.close()
 
 ####################################################################################################
