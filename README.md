@@ -1,6 +1,6 @@
-# Federated-Learning-
+# Federated-Learning-Flower
 Fed learning project with (flwr) client and server.
-this is in testing stage right now
+
 
 
 Client:
