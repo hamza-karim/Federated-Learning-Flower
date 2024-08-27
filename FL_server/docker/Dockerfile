@@ -68,7 +68,7 @@ RUN pip3 --version
 RUN ls -l /app/src/requirements.txt
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt || { echo 'Pip install failed'; exit 1; }
+RUN pip3 install --no-cache-dir -r requirements.txt || { echo 'installation failed'; exit 1; }
 
 # Change working directory back to /app/
 WORKDIR /app
