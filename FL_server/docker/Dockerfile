@@ -60,11 +60,18 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
+# Debug: Check if pip3 is available
+RUN pip3 --version
+
+# Debug: Check if requirements.txt is present
+RUN ls -l /app/src/requirements.txt
+
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt || { echo 'Pip install failed'; exit 1; }
 
 # Change working directory back to /app/
 WORKDIR /app
 
 # Keep the container running (replace with your actual command)
 CMD ["tail", "-f", "/dev/null"]
+
