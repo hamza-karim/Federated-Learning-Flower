@@ -40,7 +40,7 @@
 # Use the CUDA runtime container as the base image
 FROM nvcr.io/nvidia/l4t-cuda:12.2.12-devel
 
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 
 # Set the working directory in the container
 WORKDIR /app
@@ -51,22 +51,20 @@ COPY FL_server/src/ /app/src
 # Set the working directory to /app/src/
 WORKDIR /app/src
 
-# Update package lists and install necessary build tools and dependencies
+# Install necessary packages and pip
 RUN apt-get update && apt-get install -y \
     nano \
     pkg-config \
     libhdf5-dev \
     gcc \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Change working directory back to /app/
 WORKDIR /app
 
 # Keep the container running (replace with your actual command)
 CMD ["tail", "-f", "/dev/null"]
-
-
-
