@@ -37,8 +37,8 @@
 
 ###################################################################################################
 
-# Use the latest L4T ML container as the base image
-FROM nvcr.io/nvidia/l4t-ml:r36.2.0-py3
+# Use the CUDA runtime container as the base image
+FROM nvcr.io/nvidia/l4t-cuda:12.2.12-devel
 
 ENV PYTHONUNBUFFERED 1
 
@@ -65,7 +65,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Change working directory back to /app/
 WORKDIR /app
 
-# Keep the container running (you can replace this with your actual command)
+# Keep the container running (replace with your actual command)
 CMD ["tail", "-f", "/dev/null"]
+
 
 
