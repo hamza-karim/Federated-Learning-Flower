@@ -39,7 +39,7 @@
 
 # Use the CUDA runtime container as the base image
 #FROM nvcr.io/nvidia/l4t-cuda:12.2.12-devel
-FROM nvcr.io/nvidia/l4t-ml:r32.5.0-py3
+FROM nvcr.io/nvidia/l4t-ml:r32.7.1-py3
 
 ENV PYTHONUNBUFFERED=1
 
