@@ -37,8 +37,8 @@
 
 ###################################################################################################
 
-# Use the L4T ML container as the base image
-FROM nvcr.io/nvidia/l4t-ml:r35.3.1-py3
+# Use the latest L4T ML container as the base image
+FROM nvcr.io/nvidia/l4t-ml:r36.2.0-py3
 
 ENV PYTHONUNBUFFERED 1
 
@@ -67,4 +67,5 @@ WORKDIR /app
 
 # Keep the container running (you can replace this with your actual command)
 CMD ["tail", "-f", "/dev/null"]
+
 
