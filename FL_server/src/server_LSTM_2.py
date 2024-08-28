@@ -1,7 +1,6 @@
 # Muhammad Hamza Karim
 
 import argparse
-from typing import Dict
 from typing import Dict, List, Tuple
 import flwr as fl
 import numpy as np
