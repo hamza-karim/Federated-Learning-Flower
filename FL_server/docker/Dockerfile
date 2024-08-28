@@ -39,6 +39,7 @@
 
 #FROM nvcr.io/nvidia/l4t-cuda:12.2.12-devel
 FROM nvcr.io/nvidia/l4t-ml:r32.7.1-py3
+FROM python:3.9-slim
 
 ENV PYTHONUNBUFFERED=1
 
@@ -57,17 +58,17 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libhdf5-dev \
     gcc \
-    python3-pip \
+    #python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Debug: Check if pip3 is available
-RUN pip3 --version
+#RUN pip3 --version
 
-# Debug: Check if requirements.txt is present
-RUN ls -l /app/src/requirements.txt
+## Debug: Check if requirements.txt is present
+#RUN ls -l /app/src/requirements.txt
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt || { echo 'installation failed'; exit 1; }
+#RUN pip3 install --no-cache-dir -r requirements.txt || { echo 'installation failed'; exit 1; }
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Change working directory back to /app/
 WORKDIR /app
