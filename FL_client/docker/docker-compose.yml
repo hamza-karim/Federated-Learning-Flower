@@ -1,8 +1,9 @@
-version: '2'
+version: '2.3'
 
 services:
 
   fl-client:
     image: hamzakarim07/flwr_client:latest
+    runtime: nvidia
     container_name: flwr-client-${devicename}
     #command: --ip=192.168.1.50 --folder=batch
