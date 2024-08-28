@@ -1,9 +1,10 @@
-version: '2'
+version: '2.3'
 
 services:
 
   fl-server:
     image: hamzakarim07/flwr_server:latest
+    runtime: nvidia
     container_name: flwr-server
     ports:
       - "8080:8080"

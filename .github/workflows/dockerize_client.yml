@@ -23,4 +23,5 @@ jobs:
           file: ./FL_client/docker/Dockerfile
           push: true
           tags: hamzakarim07/flwr_client:latest
-          platforms: linux/amd64,linux/arm64/v8
+#          platforms: linux/amd64,linux/arm64/v8
+          platforms: linux/arm64  # Limit the build to ARM64 architecture
