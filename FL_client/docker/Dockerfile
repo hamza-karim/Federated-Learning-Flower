@@ -58,7 +58,7 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libhdf5-dev \
     gcc \
-    #python3-pip \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
