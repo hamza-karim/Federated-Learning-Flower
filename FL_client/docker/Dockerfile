@@ -38,7 +38,8 @@
 
 ####################################(With GPU)############################################################
 
-FROM nvcr.io/nvidia/l4t-ml:r32.7.1-py3
+#FROM nvcr.io/nvidia/l4t-ml:r32.7.1-py3
+FROM nvcr.io/nvidia/l4t-ml:r35.2.1-py3
 #FROM python:3.9-slim
 
 ENV PYTHONUNBUFFERED=1
