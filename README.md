@@ -11,6 +11,7 @@ Now i have to implement LSTM autoencoders ( this is repo testing )
 
 
 server: python server_LSTM_2.py
-client2: python client_LSTM_2.py --ip=192.168.1.23 --folder=Client_22_LSTM --id=2
+client1: python3 client_LSTM_2.py --ip=192.168.1.23 --folder=Client_22_LSTM --id=1
+client2: python3 client_LSTM_2.py --ip=192.168.1.23 --folder=Client_22_LSTM --id=2
 
 sudo docker build -t hamzakarim07/flwr_client:latest -f FL_client/docker/Dockerfile .

@@ -207,13 +207,7 @@ if __name__ == "__main__":
     flower_client.model = model
 
     # Start Client
-    #fl.client.start_numpy_client(server_address=SERVER_ADDR, client=flower_client)
-
-    # Start Client using new API
-    fl.client.start_client(
-        server_address=SERVER_ADDR,
-        client=flower_client.to_client()
-    )
+    fl.client.start_numpy_client(server_address=SERVER_ADDR, client=flower_client)
 
     # Save the trained model
     joblib.dump(model, 'trained_model_LSTM.joblib')

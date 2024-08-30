@@ -2,8 +2,11 @@ version: '2.3'
 
 services:
 
-  fl-client:
+  fl-client1:
     image: hamzakarim07/flwr_client:latest
     runtime: nvidia
-    container_name: flwr-client-${devicename}
-    #command: --ip=192.168.1.50 --folder=batch
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+#    command: nvidia-smi
+    container_name: flwr-client1
+#    command: --ip=192.168.1.50 --folder=batch
