@@ -3,8 +3,12 @@
 
 This repo demonstrate the Federated Learning in a DER (Distributed Energy Resource) using Flower. 
 Project is deployed using docker containers and pre-built images can be found at: https://hub.docker.com/repositories/hamzakarim07
+1. **hamzakarim07 / flwr_client**
+2. **hamzakarim07 / flwr server**
 
-<img src="images/fed framework.png" alt="fed framework" width="300" height="">
+<div align="center">
+  <img src="images/fed framework.png" alt="fed framework" width="300">
+</div>
 
 
 Client:
