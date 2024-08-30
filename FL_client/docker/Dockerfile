@@ -38,9 +38,7 @@
 
 ####################################(With GPU)############################################################
 
-#FROM nvcr.io/nvidia/l4t-ml:r32.7.1-py3
 FROM nvcr.io/nvidia/l4t-ml:r35.2.1-py3
-#FROM python:3.9-slim
 
 ENV PYTHONUNBUFFERED=1
 
@@ -62,8 +60,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-#RUN pip3 install --no-cache-dir -r requirements.txt || { echo 'installation failed'; exit 1; }
+#RUN pip3 install --no-cache-dir -r requirements.txt
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Change working directory back to /app/

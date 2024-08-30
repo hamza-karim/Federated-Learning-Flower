@@ -37,9 +37,7 @@
 
 ########################################(With GPU)###########################################################
 
-#FROM nvcr.io/nvidia/l4t-cuda:12.2.12-devel
-FROM nvcr.io/nvidia/l4t-ml:r32.7.1-py3
-FROM python:3.9-slim
+FROM nvcr.io/nvidia/l4t-ml:r35.2.1-py3
 
 ENV PYTHONUNBUFFERED=1
 
@@ -52,22 +50,17 @@ COPY FL_server/src/ /app/src
 # Set the working directory to /app/src/
 WORKDIR /app/src
 
-# Install necessary packages and pip
+# Install necessary packages
 RUN apt-get update && apt-get install -y \
     nano \
     pkg-config \
     libhdf5-dev \
     gcc \
-    #python3-pip \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-#RUN pip3 --version
 
-## Debug: Check if requirements.txt is present
-#RUN ls -l /app/src/requirements.txt
-
-# Install Python dependencies
-#RUN pip3 install --no-cache-dir -r requirements.txt || { echo 'installation failed'; exit 1; }
+#RUN pip3 install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Change working directory back to /app/
