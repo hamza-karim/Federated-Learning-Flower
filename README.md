@@ -1,6 +1,10 @@
 # Federated-Learning-Flower
-Fed learning project with flwr client and server.
-![fed framework.png](..%2F..%2Fwork%2Fpaper%20diagrams%2Ffed%20framework.png)
+**Fed learning project with flwr client and server.**
+
+This repo demonstrate the Federated Learning in a DER (Distributed Energy Resource) using Flower. 
+Project is deployed using docker containers and pre-built images can be found at: https://hub.docker.com/repositories/hamzakarim07
+
+<img src="images/fed framework.png" alt="fed framework" width="300" height="">
 
 
 Client:
