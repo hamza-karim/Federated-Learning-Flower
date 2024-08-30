@@ -10,9 +10,11 @@ import random
 import tensorflow as tf
 from tensorflow import keras
 from typing import Tuple
-from keras.models import Sequential
-from keras.layers import LSTM, RepeatVector, TimeDistributed, Dense
+#from keras.models import Sequential
+#from keras.layers import LSTM, RepeatVector, TimeDistributed, Dense
 import warnings
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, RepeatVector, TimeDistributed, Dense
 import matplotlib.pyplot as plt
 
 warnings.simplefilter('ignore')
@@ -128,6 +130,7 @@ class FlowerClient(fl.client.NumPyClient):
 
     def get_parameters(self, config):
         return model.get_weights()
+
     def fit(self, parameters, config):
         model.set_weights(parameters)
         r= self.model.fit(self.X_train, self.y_train, epochs=5, batch_size=100, validation_split=0.2, verbose=1)
@@ -163,12 +166,23 @@ if __name__ == "__main__":
     X_train, y_train, X_test, y_test = preprocess_dataset(df)
 
     # Create and Compile Model
+    # model = Sequential()
+    # model.add(LSTM(128, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
+    # model.add(LSTM(64, activation='relu', return_sequences=False))
+    # model.add(RepeatVector(X_train.shape[1]))
+    # model.add(LSTM(64, activation='relu', return_sequences=True))
+    # model.add(LSTM(128, activation='relu', return_sequences=True))
+    # model.add(TimeDistributed(Dense(X_train.shape[2])))
+    # model.compile(optimizer='adam', loss='mae', metrics=["mape"])
+
+    #Model with Tensorflow GPU working
+
     model = Sequential()
-    model.add(LSTM(128, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
-    model.add(LSTM(64, activation='relu', return_sequences=False))
+    model.add(LSTM(128, activation='tanh', recurrent_activation='sigmoid', input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True))
+    model.add(LSTM(64, activation='tanh', recurrent_activation='sigmoid', return_sequences=False))
     model.add(RepeatVector(X_train.shape[1]))
-    model.add(LSTM(64, activation='relu', return_sequences=True))
-    model.add(LSTM(128, activation='relu', return_sequences=True))
+    model.add(LSTM(64, activation='tanh', recurrent_activation='sigmoid', return_sequences=True))
+    model.add(LSTM(128, activation='tanh', recurrent_activation='sigmoid', return_sequences=True))
     model.add(TimeDistributed(Dense(X_train.shape[2])))
     model.compile(optimizer='adam', loss='mae', metrics=["mape"])
 
@@ -193,7 +207,13 @@ if __name__ == "__main__":
     flower_client.model = model
 
     # Start Client
-    fl.client.start_numpy_client(server_address=SERVER_ADDR, client=flower_client)
+    #fl.client.start_numpy_client(server_address=SERVER_ADDR, client=flower_client)
+
+    # Start Client using new API
+    fl.client.start_client(
+        server_address=SERVER_ADDR,
+        client=flower_client.to_client()
+    )
 
     # Save the trained model
     joblib.dump(model, 'trained_model_LSTM.joblib')
