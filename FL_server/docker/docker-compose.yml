@@ -5,6 +5,8 @@ services:
   fl-server:
     image: hamzakarim07/flwr_server:latest
     runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
     container_name: flwr-server
     ports:
       - "8080:8080"
