@@ -20,7 +20,7 @@ The repository demonstrates Federated Learning-based anomaly detection in a DER 
 2. Docker installed on the devices
 
 #### Setup Federated Server:
-1. Pull the Docker image for the client on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
+1. Pull the Docker image for the server on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
    ```bash
    sudo docker pull hamzakarim07/flwr_server:latest
 2. Run following command to run docker container:
