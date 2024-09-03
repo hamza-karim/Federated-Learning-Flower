@@ -50,39 +50,39 @@ The repository demonstrates Federated Learning-based anomaly detection in a DER 
    python3 client_LSTM_2.py --ip=192.168.1.23 --folder=Client_1_LSTM --id=1
    python3 client_LSTM_2.py --ip=192.168.1.23 --folder=Client_22_LSTM --id=2
    
-Client:
+### Some Random Docker commands
+1. To build docker images from the repository, first pull the repo and then execute the following commands:
+   ```bash
+   sudo docker build -t hamzakarim07/flwr_client:latest -f FL_client/docker/Dockerfile .
+   sudo docker build -t hamzakarim07/flwr_server:latest -f FL_server/docker/Dockerfile .
+   sudo docker login
+   sudo docker push hamzakarim07/flwr_server:latest
+   sudo nano /root/.docker/config.json
+
+2. Docker config file should be like below to use --runtime = nvidia :
+   ```bash
+       sudo nano /etc/docker/daemon.json
+   
+       {
+        "default-runtime": "nvidia",
+        "runtimes": {
+            "nvidia": {
+                "args": [],
+                "path": "nvidia-container-runtime"
+            }
+        }
+    }
+
+3. If docker is removed or docker engine not working:
+   ```bash
+   sudo apt-get remove --purge docker docker.io containerd runc
+   sudo apt-get update
+   sudo apt-get install docker.io
+   sudo systemctl start docker
+   sudo systemctl enable docker
+   sudo docker run hello-world
+   
+### Run Random Forest code
+```bash
 sudo docker-compose up -d 
 python client_rf.py --ip=172.16.232.50 --folder=Client_1 --id=1
-
-
-
-
-server: python3 server_LSTM_2.py
-
-client1: python3 client_LSTM_2.py --ip=192.168.1.23 --folder=Client_1_LSTM --id=1
-
-client2: python3 client_LSTM_2.py --ip=192.168.1.23 --folder=Client_22_LSTM --id=2
-
-sudo docker build -t hamzakarim07/flwr_client:latest -f FL_client/docker/Dockerfile .
-
-sudo docker build -t hamzakarim07/flwr_server:latest -f FL_server/docker/Dockerfile .
-
-
-
-sudo docker push hamzakarim07/flwr_server:latest
-
-
-sudo nano /root/.docker/config.json
-
-
-if docker is removed:
-sudo apt-get remove --purge docker docker.io containerd runc
-sudo apt-get update
-sudo apt-get install docker.io
-
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo docker run hello-world
-
-check docker settings for nvidia container runtime:
-sudo nano /etc/docker/daemon.json
