@@ -8,7 +8,7 @@
 
 This repository contains the code, datasets, and documentation for our research paper titled **"Integrating Edge Computing and Federated Learning for Enhanced Anomaly Detection in DERs."** This study explores the application of Federated Learning (FL) in a distributed energy resource (DER) environment, with a focus on anomaly detection using NVIDIA Jetson devices.
 
-The repository demonstrates Federated Learning-based anomaly detection in a DER environment using the Flower framework. The project specifically employs Long Short-Term Memory (LSTM) autoencoders to detect anomalies related to False Data Injection Attacks (FDIAs). The deployment is managed using Docker containers, and pre-built images can be found at:
+The repository demonstrates Federated Learning-based anomaly detection in a DER environment using the Flower framework. The project specifically employs Long Short-Term Memory (LSTM) autoencoders to detect anomalies related to False Data Injection Attacks (FDIAs). The deployment is managed using Docker containers, the base image used is Nvidia l4t containers with GPU processing enabled. Final images can be found at:
 
 - [hamzakarim07/flwr_client](https://hub.docker.com/repositories/hamzakarim07)
 - [hamzakarim07/flwr_server](https://hub.docker.com/repositories/hamzakarim07)
