@@ -93,6 +93,9 @@ The dataset was split in order that 80% of normal instances were considered for 
    sudo docker run hello-world
    
 ### Run Random Forest code
-```bash
-sudo docker-compose up -d 
-python client_rf.py --ip=172.16.232.50 --folder=Client_1 --id=1
+    ```bash
+    sudo docker-compose up -d 
+    python client_rf.py --ip=172.16.232.50 --folder=Client_1 --id=1
+
+## Acknowledgments
+I would like to acknowledge NVIDIA for providing the L4T base images used in this project. The L4T (Linux for Tegra) container images were instrumental in enabling GPU-accelerated machine learning tasks on NVIDIA Jetson devices.
