@@ -10,7 +10,7 @@ The repository demonstrates Federated Learning-based anomaly detection in a DER 
 - [hamzakarim07/flwr_server](https://hub.docker.com/repositories/hamzakarim07)
 
 <div align="center">
-  <img src="images/fed_framework.png" alt="Federated Learning Framework" width="500">
+  <img src="images/fed_framework.png" alt="Federated Learning Framework" width="1000">
 </div>
 
 ### How to Run:
