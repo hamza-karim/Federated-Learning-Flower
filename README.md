@@ -1,6 +1,10 @@
 # Federated Learning for Anomaly Detection in Distributed Energy Resources (DERs)
 
-## Fed Learning Project with Flower (flwr) Client and Server
+## Fed Learning Project with Flower (flwr) Client and Server.
+<div align="center">
+  <img src="images/fed framework.png" alt="Federated Learning Framework" width="300">
+</div>
+
 
 This repository contains the code, datasets, and documentation for our research paper titled **"Integrating Edge Computing and Federated Learning for Enhanced Anomaly Detection in DERs."** This study explores the application of Federated Learning (FL) in a distributed energy resource (DER) environment, with a focus on anomaly detection using NVIDIA Jetson devices.
 
@@ -11,6 +15,12 @@ The repository demonstrates Federated Learning-based anomaly detection in a DER 
 
 <div align="center">
   <img src="images/fed_framework.png" alt="Federated Learning Framework" width="1000">
+</div>
+
+### Dataset Split for Train-Test:
+The dataset was split in order that 80% of normal instances were considered for training and rest 20% and all the anomalous data points were used as testing data.
+<div align="center">
+  <img src="images/test-train.png" alt="Federated Learning Framework" width="1000">
 </div>
 
 ### How to Run:
