@@ -99,3 +99,16 @@ The dataset was split in order that 80% of normal instances were considered for 
 
 ## Acknowledgments
 I would like to acknowledge NVIDIA for providing the L4T base images used in this project. The L4T (Linux for Tegra) container images were instrumental in enabling GPU-accelerated machine learning tasks on NVIDIA Jetson devices.
+
+
+## How I trained NFL using jupyter lab on nano and agx using nvidia l4t-ml container.
+
+1. ssh into device and run the command:
+   ```bash
+   sudo docker run -it --rm --runtime nvidia --network host nvcr.io/nvidia/l4t-ml:r36.2.0-py3
+2. ssh again to fwd port 9999 from local machine (nano 6) :
+   ```bash
+   ssh -L 9999:localhost:8888 c2srnano06@172.16.233.149 -p 16
+3. Then open URL from local machine:
+   ```bash
+   http://localhost:9999
