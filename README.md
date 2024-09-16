@@ -97,10 +97,6 @@ The dataset was split in order that 80% of normal instances were considered for 
     sudo docker-compose up -d 
     python client_rf.py --ip=172.16.232.50 --folder=Client_1 --id=1
 
-## Acknowledgments
-I would like to acknowledge NVIDIA for providing the L4T base images used in this project. The L4T (Linux for Tegra) container images were instrumental in enabling GPU-accelerated machine learning tasks on NVIDIA Jetson devices.
-
-
 ## How I trained NFL using jupyter lab on nano and agx using nvidia l4t-ml container.
 
 1. ssh into device and run the command:
@@ -112,3 +108,7 @@ I would like to acknowledge NVIDIA for providing the L4T base images used in thi
 3. Then open URL from local machine:
    ```bash
    http://localhost:9999
+
+## Acknowledgments
+I would like to acknowledge NVIDIA for providing the L4T base images used in this project. The L4T (Linux for Tegra) container images were instrumental in enabling GPU-accelerated machine learning tasks on NVIDIA Jetson devices.
+
