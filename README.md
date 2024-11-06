@@ -102,6 +102,8 @@ The dataset was split in order that 80% of normal instances were considered for 
 1. ssh into device and run the command:
    ```bash
    sudo docker run -it --rm --runtime nvidia --network host nvcr.io/nvidia/l4t-ml:r36.2.0-py3
+   sudo docker run -it --rm --runtime nvidia --network host --name your_container_name nvcr.io/nvidia/l4t-ml:r36.2.0-py3
+
 2. ssh again to fwd port 9999 from local machine (nano 6) :
    ```bash
    ssh -L 9999:localhost:8888 c2srnano06@172.16.233.149 -p 16
