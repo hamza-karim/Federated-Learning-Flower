@@ -1,5 +1,4 @@
 # Muhammad Hamza Karim
-
 import os
 import joblib
 import argparse
@@ -8,13 +7,11 @@ import numpy as np
 import pandas as pd
 import random
 import tensorflow as tf
-from tensorflow import keras
+import keras as ke
 from typing import Tuple
-#from keras.models import Sequential
-#from keras.layers import LSTM, RepeatVector, TimeDistributed, Dense
 import warnings
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, RepeatVector, TimeDistributed, Dense
+from keras import Sequential
+from keras.layers import LSTM, RepeatVector, TimeDistributed, Dense, Bidirectional
 import matplotlib.pyplot as plt
 
 warnings.simplefilter('ignore')

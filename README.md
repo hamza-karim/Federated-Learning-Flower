@@ -32,7 +32,7 @@ The dataset was split in order that 80% of normal instances were considered for 
 #### Setup Federated Server:
 1. Build the docker image:
    ```bash
-   docker build -t hamzakarim07/flwr_server:latest -f FL_server/docker/Dockerfile .
+   docker build --platform linux/arm64 -t hamzakarim07/flwr_server:latest -f FL_server/docker/Dockerfile .
    ```
 2. Pull the Docker image for the server on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
    ```bash
@@ -51,7 +51,7 @@ The dataset was split in order that 80% of normal instances were considered for 
 #### Setup Federated Clients:
 1. Build the docker image:
    ```bash
-   docker build -t hamzakarim07/flwr_client:latest -f FL_client/docker/Dockerfile .
+   docker build --platform linux/arm64 -t hamzakarim07/flwr_client:latest -f FL_client/docker/Dockerfile .
    ```
 2. Pull the Docker image for the client on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
    ```bash
