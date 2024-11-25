@@ -37,7 +37,9 @@
 
 ########################################(With GPU)###########################################################
 
-FROM nvcr.io/nvidia/l4t-ml:r35.2.1-py3
+#FROM nvcr.io/nvidia/l4t-ml:r35.2.1-py3
+#Latest version
+FROM nvcr.io/nvidia/l4t-ml:r36.2.0-py3
 
 ENV PYTHONUNBUFFERED=1
 

@@ -30,6 +30,10 @@ The dataset was split in order that 80% of normal instances were considered for 
 2. Docker installed on the devices
 
 #### Setup Federated Server:
+Build the docker image:
+```bash
+   docker build -t hamzakarim07/flwr_server:latest -f FL_server/docker/Dockerfile .
+   ```
 1. Pull the Docker image for the server on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
    ```bash
    sudo docker pull hamzakarim07/flwr_server:latest
@@ -45,6 +49,9 @@ The dataset was split in order that 80% of normal instances were considered for 
    python3 server_LSTM_2.py
    
 #### Setup Federated Clients:
+```bash
+   docker build -t hamzakarim07/flwr_client:latest -f FL_client/docker/Dockerfile .
+   ```
 1. Pull the Docker image for the client on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
    ```bash
    sudo docker pull hamzakarim07/flwr_client:latest
