@@ -57,8 +57,8 @@ The dataset was split in order that 80% of normal instances were considered for 
    cd src
 4. Run python command to execute the python script for client 1 and 2 **--ip is server ip**:
    ```bash
-   python3 client_LSTM_2.py --ip=192.168.1.23 --folder=Client_1_LSTM --id=1
-   python3 client_LSTM_2.py --ip=192.168.1.23 --folder=Client_22_LSTM --id=2
+   python3 client_LSTM_2.py --ip=192.168.1.24 --folder=Client_1_LSTM --id=1
+   python3 client_LSTM_2.py --ip=192.168.1.24 --folder=Client_22_LSTM --id=2
    
 ### Some Random Docker commands
 1. To build docker images from the repository, first pull the repo and then execute the following commands:
