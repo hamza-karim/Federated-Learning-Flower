@@ -186,7 +186,7 @@ if __name__ == "__main__":
 
 # BiLSTM Model
     model = Sequential()
-    model.add(Bidirectional(LSTM(128, activation='tanh', recurrent_activation='sigmoid', input_shape=(X_train.shape[1], X_train.shape[2]), return_sequences=True)))
+    model.add(Bidirectional(LSTM(128, activation='tanh', recurrent_activation='sigmoid', return_sequences=True), input_shape=(X_train.shape[1], X_train.shape[2])))
     model.add(Bidirectional(LSTM(64, activation='tanh', recurrent_activation='sigmoid', return_sequences=False)))
     model.add(RepeatVector(X_train.shape[1]))
     model.add(Bidirectional(LSTM(64, activation='tanh', recurrent_activation='sigmoid', return_sequences=True)))
