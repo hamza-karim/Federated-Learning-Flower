@@ -21,11 +21,12 @@ def to_sequence(x, y, seq_size=1):
 model = joblib.load('trained_model_LSTM.joblib')
 
 # Load the dataset
-data1 = pd.read_csv('dataset/V2_25_Feb_3_60m_anomalous_data(pulse).csv')
-data2 = pd.read_csv('dataset/V1_25_Feb_180m_anomalous_data(gaussian).csv')
+data1 = pd.read_csv('dataset/V3S1.csv')
+# data2 = pd.read_csv('dataset/V1_25_Feb_180m_anomalous_data(gaussian).csv')
 
+combined_data = data1
 # Combined
-combined_data = pd.concat([data1, data2], ignore_index=True)
+#combined_data = pd.concat([data1, data2], ignore_index=True)
 combined_data['datetimestamp'] = pd.to_datetime(combined_data['datetimestamp'])
 
 # Plot the combined dataset
