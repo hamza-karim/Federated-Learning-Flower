@@ -99,6 +99,12 @@ The dataset was split in order that 80% of normal instances were considered for 
    sudo systemctl start docker
    sudo systemctl enable docker
    sudo docker run hello-world
+
+4. Setup Portainer for Managing Docker Containers:
+   ```bash
+   docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest
+   Portainer Web Interface: https://IP:9443
+
    
 ### Run Random Forest code
     ```bash
