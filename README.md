@@ -1,4 +1,5 @@
 # Federated Learning for Anomaly Detection in Distributed Energy Resources (DERs)
+# HFL Experiment
 
 ## Fed Learning Project with Flower (flwr) Client and Server.
 <div align="center">
