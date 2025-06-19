@@ -1,5 +1,6 @@
 # Federated Learning for Anomaly Detection in Distributed Energy Resources (DERs)
-# HFL Experiment
+# Branch: HFL
+# Purpose: Hierarchical Federated Learning experiments
 
 ## Fed Learning Project with Flower (flwr) Client and Server.
 <div align="center">
