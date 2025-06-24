@@ -1,4 +1,6 @@
 # Federated Learning for Anomaly Detection in Distributed Energy Resources (DERs)
+# Branch: HFL
+# Purpose: Hierarchical Federated Learning experiments
 
 ## Fed Learning Project with Flower (flwr) Client and Server.
 <div align="center">
@@ -34,17 +36,21 @@ The dataset was split in order that 80% of normal instances were considered for 
    ```bash
    docker build --platform linux/arm64 -t hamzakarim07/flwr_server:latest -f FL_server/docker/Dockerfile .
    ```
-2. Pull the Docker image for the server on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
+2. Push the docker image to docker hub:
+   ```bash
+   docker push hamzakarim07/flwr_server:latest
+   ```
+3. Pull the Docker image for the server on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
    ```bash
    sudo docker pull hamzakarim07/flwr_server:latest
-3. Run following command to run docker container:
+4. Run following command to run docker container:
    ```bash
    sudo docker run -d --name flwr-server --runtime=nvidia --gpus all -e NVIDIA_VISIBLE_DEVICES=all -p 8080:8080 hamzakarim07/flwr_server:latest
-4. Go inside the docker container:
+5. Go inside the docker container:
    ```bash
    sudo docker exec -it <container_id_or_name> bash
    cd src
-5. Run python command to execute the python script:
+6. Run python command to execute the python script:
    ```bash
    python3 server_LSTM_2.py
    
@@ -53,17 +59,21 @@ The dataset was split in order that 80% of normal instances were considered for 
    ```bash
    docker build --platform linux/arm64 -t hamzakarim07/flwr_client:latest -f FL_client/docker/Dockerfile .
    ```
-2. Pull the Docker image for the client on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
+2. Push the docker image to docker hub:
+   ```bash
+   docker push hamzakarim07/flwr_server:latest
+   ```
+3. Pull the Docker image for the client on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
    ```bash
    sudo docker pull hamzakarim07/flwr_client:latest
-3. Run following command to run docker container for client 1, just change the name of container for client 2:
+4. Run following command to run docker container for client 1, just change the name of container for client 2:
    ```bash
    sudo docker run -d --name flwr-client1 --runtime=nvidia --gpus all -e NVIDIA_VISIBLE_DEVICES=all hamzakarim07/flwr_client:latest
-4. Go inside the docker container:
+5. Go inside the docker container:
    ```bash
    sudo docker exec -it <container_id_or_name> bash
    cd src
-5. Run python command to execute the python script for client 1 and 2 **--ip is server ip**:
+6. Run python command to execute the python script for client 1 and 2 **--ip is server ip**:
    ```bash
    python3 client_LSTM_2.py --ip=192.168.1.24 --folder=Client_1_LSTM --id=1
    python3 client_LSTM_2.py --ip=192.168.1.24 --folder=Client_22_LSTM --id=2
