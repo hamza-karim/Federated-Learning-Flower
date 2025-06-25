@@ -21,7 +21,7 @@ def to_sequence(x, y, seq_size=1):
 model = joblib.load('trained_model_LSTM.joblib')
 
 # Load the dataset
-data1 = pd.read_csv('dataset/V3S1.csv')
+data1 = pd.read_csv('Test_data/V3S1.csv')
 # data2 = pd.read_csv('dataset/V1_25_Feb_180m_anomalous_data(gaussian).csv')
 
 combined_data = data1
