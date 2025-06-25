@@ -83,7 +83,7 @@ The dataset was split in order that 80% of normal instances were considered for 
    ```bash
    scp -r <User>@<Host_IP>:/home/<User>/Desktop/flwr-client1 .
    For Example:
-   scp -r karim_test@10.10.50.22:/home/karim_test/Desktop/flwr-client1 .
+   scp -r karim_test@10.10.60.12:/home/karim_test/Desktop/flwr-client1 "$HOME\Desktop"
 
    
 ### Some Random Docker commands
