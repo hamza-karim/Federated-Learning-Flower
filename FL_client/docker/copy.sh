@@ -8,9 +8,16 @@ if [[ "$action" != "copy" && "$action" != "delete" ]]; then
   exit 1
 fi
 
-# Ask for client number
-read -p "Enter client number (e.g., 1, 2, 3): " client_num
-container_name="flwr-client${client_num}"
+read -p "Is this a server or client? (server/client): " role
+
+# Validate role
+if [[ "$role" != "server" && "$role" != "client" ]]; then
+  echo "❌ Invalid role. Please enter 'server' or 'client'."
+  exit 1
+fi
+
+read -p "Enter ${role} number (e.g., 1, 2, 3...): " number
+container_name="flwr-${role}${number}"
 destination_dir="./${container_name}"
 
 # Handle copy
