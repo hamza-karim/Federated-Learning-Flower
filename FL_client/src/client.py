@@ -64,8 +64,6 @@ faulthandler.enable()
 #         break
 #     print("Invalid choice. Enter 1 or 2.")
 
-
-
 SERVER_IP = os.getenv("SERVER_IP", "10.226.47.97")
 SERVER_PORT = os.getenv("SERVER_PORT", "8080")
 CLIENT_ID = int(os.getenv("CLIENT_ID", "1"))
