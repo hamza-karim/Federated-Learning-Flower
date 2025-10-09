@@ -1,0 +1,2 @@
+FL_client/src/Train_data/*.csv filter=lfs diff=lfs merge=lfs -text
+FL_client/src/Train_data/V_0.csv filter=lfs diff=lfs merge=lfs -text
