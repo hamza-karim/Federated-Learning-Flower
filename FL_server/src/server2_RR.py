@@ -165,6 +165,14 @@ class SaveModelFedAvgStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedAvg)
         print(f"[Server] Selected clients for evaluation (round-robin): {selected_ids}")
 
         return [(client, fl.common.EvaluateIns(parameters, config)) for client in selected_clients]
+    
+    def aggregate_fit(self, rnd, results, failures):
+        """Save aggregated model weights after each round"""
+        aggregated_weights = super().aggregate_fit(rnd, results, failures)
+        if aggregated_weights is not None:
+            print(f"\n[Server] Saving round {rnd} aggregated weights (FedAvg)...")
+            np.savez(f"round-{rnd}-weights_fedavg.npz", *aggregated_weights)
+        return aggregated_weights
 
 
 class SaveModelFedProxStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedProx):
@@ -215,6 +223,14 @@ class SaveModelFedProxStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedPro
         print(f"[Server] Selected clients for evaluation (round-robin): {selected_ids}")
 
         return [(client, fl.common.EvaluateIns(parameters, config)) for client in selected_clients]
+    
+    def aggregate_fit(self, rnd, results, failures):
+        """Save aggregated model weights after each round"""
+        aggregated_weights = super().aggregate_fit(rnd, results, failures)
+        if aggregated_weights is not None:
+            print(f"\n[Server] Saving round {rnd} aggregated weights (FedProx)...")
+            np.savez(f"round-{rnd}-weights_fedprox.npz", *aggregated_weights)
+        return aggregated_weights
 
 
 # -------------------- Main --------------------

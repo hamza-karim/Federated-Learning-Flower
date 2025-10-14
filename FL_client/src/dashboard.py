@@ -1,52 +1,253 @@
 import streamlit as st
+import base64
 import subprocess
 from graphviz import Digraph
+from datetime import datetime
 
-st.set_page_config(page_title="FL Client Deployment", layout="wide")
+st.set_page_config(page_title="C2SR - FL Deployment", layout="wide", initial_sidebar_state="collapsed")
 
-# Custom CSS for more natural styling
+# Custom CSS for professional styling
 st.markdown("""
 <style>
     .main-header {
-        font-size: 2rem;
-        font-weight: 600;
-        color: #1a1a1a;
-        margin-bottom: 0.5rem;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        padding: 2rem 2rem 1.5rem 2rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .header-title {
+        color: white;
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    .header-subtitle {
+        color: #e0e8f0;
+        font-size: 1rem;
+        margin-top: 0.3rem;
+    }
+    .logo-container {
+        background: white;
+        padding: 0.8rem 1.5rem;
+        border-radius: 8px;
+        text-align: center;
+    }
+    .logo-text {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e3c72;
+        margin: 0;
+        line-height: 1.2;
+    }
+    .logo-subtext {
+        font-size: 0.75rem;
+        color: #666;
+        margin: 0;
     }
     .section-header {
-        font-size: 1.3rem;
-        font-weight: 500;
-        color: #2c3e50;
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: #1e3c72;
         margin-top: 2rem;
-        margin-bottom: 1rem;
-        border-bottom: 2px solid #e8e8e8;
+        margin-bottom: 1.2rem;
         padding-bottom: 0.5rem;
+        border-bottom: 3px solid #2a5298;
+    }
+    .metric-card {
+        background: white;
+        padding: 1.2rem;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .device-status {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    .status-online {
+        background-color: #4caf50;
+    }
+    .status-offline {
+        background-color: #f44336;
+    }
+    .status-unknown {
+        background-color: #ff9800;
+    }
+    .stButton>button {
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.3s;
     }
     .device-card {
         background: #f8f9fa;
         padding: 1rem;
         border-radius: 8px;
-        border-left: 4px solid #007bff;
+        border-left: 4px solid #2a5298;
         margin-bottom: 0.8rem;
-    }
-    .stButton>button {
-        border-radius: 6px;
-        font-weight: 500;
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header">Federated Learning Deployment</div>', unsafe_allow_html=True)
-st.write("Manage and deploy FL clients across edge devices")
+# Configuration for logo path
+LOGO_PATH = "./Picture1.png" 
+
+# Header with Logo
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #006400 0%, #00a86b 100%);
+                padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h1 style="color: #ffffff; font-size: 2.2rem; font-weight: 700; margin: 0;">
+            Federated Learning Deployment Platform
+        </h1>
+        <p style="color: #d4f8e8; font-size: 1rem; margin-top: 0.3rem;">
+            Federated Learning Container Management in the C2SR Edge Testbed
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# with col2:
+#     try:
+#         st.image(LOGO_PATH, use_container_width=True)
+#     except:
+#         st.markdown("""
+#         <div style="background: white; padding: 1.5rem; border-radius: 8px; text-align: center;
+#                     box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+#             <p style="font-size: 1.5rem; font-weight: 700; color: #006400; margin: 0;">C2SR</p>
+#             <p style="font-size: 0.75rem; color: #666; margin: 0;">Center for Cybersecurity Research</p>
+#             <p style="font-size: 0.75rem; color: #666; margin: 0;">University of North Dakota</p>
+#         </div>
+#         """, unsafe_allow_html=True)
+
+with open(LOGO_PATH, "rb") as f:
+    encoded_logo = base64.b64encode(f.read()).decode()
+
+with col2:
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #006400 0%, #00a86b 100%);
+                padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                text-align: center;">
+        <img src="data:image/png;base64,{encoded_logo}" 
+             alt="C2SR Logo" style="width: 100%; object-fit: contain; max-height: 120px;">
+    </div>
+    """, unsafe_allow_html=True)
+
+
+
+# Available devices - Add more devices here
+AVAILABLE_DEVICES = {
+    "10.226.47.97": "c2srnano07",
+    "10.226.47.254": "c2srnano08",
+    "10.226.47.85": "c2sragx04",
+    "10.226.47.86": "c2srnano09",
+}
+
+# Function to check device connectivity
+def check_device_status(name, ip):
+    try:
+        result = subprocess.run(
+            ["ssh", "-o", "ConnectTimeout=2", "-o", "StrictHostKeyChecking=no",
+             f"{name}@{ip}", "echo 'connected'"],
+            capture_output=True,
+            timeout=3
+        )
+        return result.returncode == 0
+    except:
+        return False
+
+# Dashboard Overview Section
+st.markdown('<div class="section-header">System Overview</div>', unsafe_allow_html=True)
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+    st.metric("Available Devices", len(AVAILABLE_DEVICES))
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col2:
+    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+    configured = len(st.session_state.get('clients', []))
+    st.metric("Configured Devices", configured)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col3:
+    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+    total_containers = sum(d['end'] - d['start'] + 1 for d in st.session_state.get('clients', []))
+    st.metric("Total Containers", total_containers)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with col4:
+    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+    st.metric("Last Update", datetime.now().strftime("%H:%M:%S"))
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Device Status Section
+st.markdown('<div class="section-header">Device Status</div>', unsafe_allow_html=True)
+
+# Initialize device status cache in session state
+if 'device_status_cache' not in st.session_state:
+    st.session_state.device_status_cache = {}
+
+with st.expander("View All Available Devices", expanded=False):
+    if st.button("🔄 Refresh Status", key="refresh_status"):
+        # Clear cache and check all devices
+        st.session_state.device_status_cache = {}
+        for ip, name in AVAILABLE_DEVICES.items():
+            st.session_state.device_status_cache[ip] = check_device_status(name, ip)
+        st.rerun()
+    
+    # Only check status if cache is empty (first time)
+    if not st.session_state.device_status_cache:
+        with st.spinner("Checking device status..."):
+            for ip, name in AVAILABLE_DEVICES.items():
+                st.session_state.device_status_cache[ip] = check_device_status(name, ip)
+    
+    cols = st.columns(3)
+    for idx, (ip, name) in enumerate(AVAILABLE_DEVICES.items()):
+        with cols[idx % 3]:
+            is_online = st.session_state.device_status_cache.get(ip, False)
+            status_class = "status-online" if is_online else "status-offline"
+            status_text = "Online" if is_online else "Offline"
+            
+            st.markdown(f"""
+            <div class="device-card">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <strong>{name}</strong><br>
+                        <small style="color: #666;">{ip}</small>
+                    </div>
+                    <div>
+                        <span class="device-status {status_class}"></span>
+                        <small>{status_text}</small>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 st.markdown("---")
 
 # Configuration Section
-st.markdown('<div class="section-header">Configuration</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">FL Configuration</div>', unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    server_ip = st.text_input("Server Address", "10.226.47.97")
+    # Server selection from available devices
+    server_device = st.selectbox(
+        "Server Device",
+        options=list(AVAILABLE_DEVICES.keys()),
+        format_func=lambda x: f"{AVAILABLE_DEVICES[x]} ({x})"
+    )
+    server_ip = server_device  # Set server_ip to selected device IP
     server_port = st.text_input("Port", "8080")
 with col2:
     model = st.selectbox("Model", ["lstm", "bilstm"])
@@ -59,15 +260,8 @@ image = st.text_input("Docker Image", "hamzakarim07/flwr_client_hfl:latest")
 
 st.markdown("---")
 
-# Available devices - Add more devices here
-AVAILABLE_DEVICES = {
-    "10.226.47.97": "c2srnano07",
-    "10.226.47.254": "c2srnano08",
-    "10.226.47.85": "c2sragx04",
-}
-
 # Client Devices Section
-st.markdown('<div class="section-header">Edge Devices</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">Edge Device Configuration</div>', unsafe_allow_html=True)
 
 if 'clients' not in st.session_state:
     st.session_state.clients = []
@@ -85,15 +279,12 @@ with st.expander("➕ Add New Device", expanded=len(st.session_state.clients)==0
             start_id = st.number_input("First Client ID", min_value=1, value=1)
         with c2:
             st.write("")  # Spacer
-            st.caption(f"Device: **{AVAILABLE_DEVICES[selected_ip]}**")
-            st.caption(f"IP: **{selected_ip}**")
             end_id = st.number_input("Last Client ID", min_value=1, value=1)
         
-        add_btn = st.form_submit_button("Add Device")
+        add_btn = st.form_submit_button("Add Device to Deployment", use_container_width=True)
         if add_btn:
-            # Check if device already added
             if any(d['ip'] == selected_ip for d in st.session_state.clients):
-                st.error(f"Device {AVAILABLE_DEVICES[selected_ip]} is already added")
+                st.error(f"Device {AVAILABLE_DEVICES[selected_ip]} is already configured")
             else:
                 st.session_state.clients.append({
                     "name": AVAILABLE_DEVICES[selected_ip],
@@ -103,9 +294,9 @@ with st.expander("➕ Add New Device", expanded=len(st.session_state.clients)==0
                 })
                 st.rerun()
 
-# Display devices
+# Display configured devices
 if st.session_state.clients:
-    st.write(f"**{len(st.session_state.clients)} device(s) configured**")
+    st.write(f"**{len(st.session_state.clients)} device(s) configured for deployment**")
     
     for idx, device in enumerate(st.session_state.clients):
         with st.container():
@@ -134,62 +325,75 @@ if st.session_state.clients:
                                 check=True,
                                 capture_output=True
                             )
-                            st.success(f"Cleaned up containers on {device['name']}")
-                        except subprocess.CalledProcessError as e:
-                            st.error(f"Failed to cleanup {device['name']}")
+                            st.success(f"✓ Cleaned up containers on {device['name']}")
+                        except subprocess.CalledProcessError:
+                            st.error(f"✗ Failed to cleanup {device['name']}")
         
         st.markdown("---")
 else:
-    st.info("No devices added yet")
+    st.info("No devices configured for deployment yet. Add your first device above.")
 
-# Topology Visualization
-if st.session_state.clients:
-    st.markdown('<div class="section-header">Network Topology</div>', unsafe_allow_html=True)
-    
-    dot = Digraph(format="png")
-    dot.attr(rankdir='TB', bgcolor='transparent')
-    dot.attr('node', fontname='Helvetica', fontsize='10')
-    dot.attr('edge', color='#666666', penwidth='1.5')
-    
-    # Server
-    dot.node('server', 
-             f'{server_ip}:{server_port}\\nServer',
-             shape='box',
-             style='filled',
-             fillcolor='#e8f4f8',
-             color='#0066cc',
-             penwidth='2')
-    
-    # Clients
-    for idx, device in enumerate(st.session_state.clients):
-        node_id = f'device_{idx}'
-        num_clients = device['end'] - device['start'] + 1
+# Network Topology
+st.markdown('<div class="section-header">Network Topology</div>', unsafe_allow_html=True)
+
+dot = Digraph(format="png")
+dot.attr(rankdir='TB', bgcolor='transparent', fontname='Helvetica', fontsize='10')
+dot.attr('edge', penwidth='2')
+
+# --- Server Node ---
+dot.node(
+    'server',
+    f"🖥️ {server_ip}:{server_port}\nFL Server\n{algo.upper()}",
+    shape='box',
+    style='filled,rounded,bold',
+    fillcolor='#4caf50',
+    fontcolor='white',
+    penwidth='2'
+)
+
+# --- Client Clusters ---
+for idx, device in enumerate(st.session_state.clients):
+    with dot.subgraph(name=f'cluster_{idx}') as c:
+        c.attr(style='rounded,dashed', color='#2a5298', label=f"{device['name']}")
+        c.attr(rank='same')  # Keep all clients of a device at the same horizontal level
         
-        dot.node(node_id,
-                f"{device['name']}\\n{device['ip']}\\n{num_clients} client(s)",
-                shape='box',
+        for cid in range(device['start'], device['end']+1):
+            client_node = f"{device['name']}_c{cid}"
+            is_online = st.session_state.device_status_cache.get(device['ip'], True)
+            fill_color = '#a8e6a1' if is_online else '#fca5a5'
+            status_emoji = '🟢' if is_online else '🔴'
+            
+            # Client node
+            c.node(
+                client_node,
+                f"{status_emoji} Client {cid}",
+                shape='circle',
                 style='filled,rounded',
-                fillcolor='#f0f0f0',
-                color='#333333')
-        
-        dot.edge('server', node_id, dir='both', arrowhead='normal', arrowtail='normal')
-    
-    st.graphviz_chart(dot)
+                fillcolor=fill_color,
+                fontcolor='black'
+            )
+            
+            # Connect client to server
+            edge_style = 'solid' if is_online else 'dashed'
+            edge_color = '#2a5298' if is_online else '#ff6b6b'
+            dot.edge('server', client_node, style=edge_style, color=edge_color)
+
+# Render the enhanced topology
+st.graphviz_chart(dot)
 
 st.markdown("---")
 
-# Deployment
-st.markdown('<div class="section-header">Deployment</div>', unsafe_allow_html=True)
+# Deployment Section
+st.markdown('<div class="section-header">Deployment Control</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
 with col1:
     if st.session_state.clients:
-        if st.button("Deploy to All Devices", type="primary", use_container_width=True):
+        if st.button("🚀 Deploy to All Devices", type="primary", use_container_width=True):
             for device in st.session_state.clients:
                 with st.expander(f"Deploying to {device['name']}", expanded=True):
                     
-                    # Build deployment script
                     script = f"""
 docker pull {image}
 docker ps -aq --filter 'name=flwr-client' | xargs -r docker rm -f
@@ -216,16 +420,16 @@ docker run -d --name flwr-client{cid} \\
                             capture_output=True,
                             text=True
                         )
-                        st.success(f"✓ Deployed {device['end'] - device['start'] + 1} clients")
+                        st.success(f"✓ Successfully deployed {device['end'] - device['start'] + 1} clients")
                     except subprocess.CalledProcessError as e:
                         st.error(f"✗ Deployment failed")
                         with st.expander("Error details"):
                             st.code(e.stderr if e.stderr else "Unknown error")
     else:
-        st.warning("Add at least one device to begin deployment")
+        st.warning("⚠️ Add at least one device to begin deployment")
 
 with col2:
-    if st.button("Delete All Containers", type="secondary", use_container_width=True):
+    if st.button("🗑️ Delete All Containers", type="secondary", use_container_width=True):
         st.warning("Cleaning all available devices...")
         for ip, name in AVAILABLE_DEVICES.items():
             with st.expander(f"Cleaning {name} ({ip})", expanded=True):
@@ -240,7 +444,8 @@ with col2:
                         text=True
                     )
                     st.success(f"✓ Removed all flwr-client containers")
-                except subprocess.CalledProcessError as e:
+                except subprocess.CalledProcessError:
                     st.error(f"✗ Cleanup failed (device may be unreachable)")
-                    with st.expander("Error details"):
-                        st.code(e.stderr if e.stderr else "Unknown error")
+
+st.markdown("---")
+st.caption("© 2025 Center for Cybersecurity Research (C2SR) | University of North Dakota (UND)")
