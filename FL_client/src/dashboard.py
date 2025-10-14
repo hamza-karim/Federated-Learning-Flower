@@ -1,8 +1,10 @@
 import streamlit as st
 import base64
 import subprocess
+import pandas as pd
 from graphviz import Digraph
 from datetime import datetime
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="C2SR - FL Deployment", layout="wide", initial_sidebar_state="collapsed")
 
@@ -383,6 +385,111 @@ st.graphviz_chart(dot)
 
 st.markdown("---")
 
+# ------------------------------
+# Training Results Visualization SERVER
+# ------------------------------
+st.markdown('<div class="section-header">Training Results</div>', unsafe_allow_html=True)
+
+server_container = "flwr-server"
+log_file_path = "/app/src/log.txt"  
+
+col1, col2 = st.columns([2, 3])
+with col1:
+    if st.button("📄 Fetch and Plot Results", use_container_width=True):
+        if not server_ip:
+            st.error("⚠️ No server device selected!")
+        else:
+            with st.spinner(f"Fetching training logs from server {AVAILABLE_DEVICES[server_ip]}..."):
+                try:
+                    # SSH into the selected server device and copy log.txt locally
+                    ssh_cmd = f"docker cp flwr-server:/app/src/log.txt /tmp/log.txt"
+                    subprocess.run([
+                        "ssh", "-o", "StrictHostKeyChecking=no",
+                        f"{AVAILABLE_DEVICES[server_ip]}@{server_ip}", ssh_cmd
+                    ], check=True)
+
+                    # Now SCP it back to the dashboard host
+                    subprocess.run([
+                        "scp",
+                        f"{AVAILABLE_DEVICES[server_ip]}@{server_ip}:/tmp/log.txt",
+                        "log.txt"
+                    ], check=True)
+
+                    # Parse needed lines
+                    import re
+                    with open("log.txt", "r") as f:
+                        lines = f.readlines()
+
+                    loss_pattern = r"losses_distributed\s*(\[.*\])"
+                    mape_pattern = r"metrics_distributed\s*\{.*\}"
+
+                    losses, mape = None, None
+                    for line in lines:
+                        if "losses_distributed" in line:
+                            match = re.search(loss_pattern, line)
+                            if match:
+                                losses = eval(match.group(1))
+                        elif "metrics_distributed" in line:
+                            match = re.search(mape_pattern, line)
+                            if match:
+                                metrics_str = match.group(0).split("metrics_distributed")[-1].strip()
+                                mape = eval(metrics_str)["mape"]
+
+                    if not losses or not mape:
+                        st.error("Could not find training results in log file.")
+                    else:
+                        st.session_state.losses = losses
+                        st.session_state.mape = mape
+                        st.success("✅ Successfully parsed training metrics!")
+                        # Check if losses and mape exist in session_state
+                        if 'losses' in st.session_state and st.session_state.losses \
+                        and 'mape' in st.session_state and st.session_state.mape:
+
+                            # Prepare losses
+                            losses = st.session_state.losses
+                            rounds_loss, loss_values = zip(*losses)
+
+                            # Prepare MAPE safely
+                            if isinstance(st.session_state.mape, dict) and 'mape' in st.session_state.mape:
+                                mape_list = st.session_state.mape['mape']
+                            else:
+                                mape_list = st.session_state.mape
+
+                            rounds_mape, mape_values = zip(*mape_list)
+
+                            # Print raw values
+                            st.markdown("**Raw Training Metrics**")
+                            st.text(f"losses_distributed {losses}")
+                            st.text(f"metrics_distributed {st.session_state.mape}")
+
+                            # Plot Loss and MAPE on same y-axis
+                            fig, ax = plt.subplots(figsize=(8,5))
+
+                            ax.plot(rounds_loss, loss_values, marker='o', color='#2a5298', label='Loss')
+                            ax.plot(rounds_mape, mape_values, marker='s', color='#ff6b6b', label='MAPE')
+                            ax.set_xlabel("FL Round")
+                            ax.set_ylabel("Value")
+                            ax.set_title("FL Training Loss and MAPE per Round")
+                            ax.grid(True, linestyle='--', alpha=0.5)
+                            ax.legend()
+
+                            # Annotate values
+                            for x, y in zip(rounds_loss, loss_values):
+                                ax.text(x, y, f"{y:.2f}", fontsize=9, va='bottom', ha='center')
+                            for x, y in zip(rounds_mape, mape_values):
+                                ax.text(x, y, f"{y:.2f}", fontsize=9, va='bottom', ha='center')
+
+                            st.pyplot(fig)
+
+                            # Show final MAPE
+                            final_mape = mape_values[-1]
+                            st.metric(label="Final MAPE", value=f"{final_mape:.2f}%")
+
+                except subprocess.CalledProcessError as e:
+                    st.error(f"Failed to fetch logs from {AVAILABLE_DEVICES[server_ip]} ({server_ip})")
+                    with st.expander("Error details"):
+                        st.code(e.stderr if e.stderr else str(e))
+                        
 # Deployment Section
 st.markdown('<div class="section-header">Deployment Control</div>', unsafe_allow_html=True)
 

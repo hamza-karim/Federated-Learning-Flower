@@ -273,9 +273,12 @@ if __name__ == "__main__":
             proximal_mu=args.proximal_mu,
             evaluate_metrics_aggregation_fn=weighted_average,
         )
+        
+    log_file = "log.txt"
+    open(log_file, "w").close()
 
     # Configure logs
-    fl.common.logger.configure(identifier="FL_Test", filename="log.txt")
+    fl.common.logger.configure(identifier="FL_Test", filename=log_file)
 
     print(f"Starting server... Waiting for {args.total_clients} clients to connect.")
     print(f"Each round will sample {args.selected_clients} clients for training and evaluation.")

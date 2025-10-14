@@ -1,0 +1,22 @@
+FL_Test | INFO flwr 2025-10-14 17:57:42,332 | app.py:163 | Starting Flower server, config: ServerConfig(num_rounds=2, round_timeout=None)
+FL_Test | INFO flwr 2025-10-14 17:57:42,346 | app.py:176 | Flower ECE: gRPC server running (2 rounds), SSL is disabled
+FL_Test | INFO flwr 2025-10-14 17:57:42,347 | server.py:89 | Initializing global parameters
+FL_Test | INFO flwr 2025-10-14 17:57:42,347 | server.py:276 | Requesting initial parameters from one random client
+FL_Test | INFO flwr 2025-10-14 17:58:41,171 | server.py:280 | Received initial parameters from one random client
+FL_Test | INFO flwr 2025-10-14 17:58:41,172 | server.py:91 | Evaluating initial parameters
+FL_Test | INFO flwr 2025-10-14 17:58:41,172 | server.py:104 | FL starting
+FL_Test | DEBUG flwr 2025-10-14 17:58:43,174 | server.py:222 | fit_round 1: strategy sampled 2 clients (out of 2)
+FL_Test | DEBUG flwr 2025-10-14 17:59:21,070 | server.py:236 | fit_round 1 received 2 results and 0 failures
+FL_Test | WARNING flwr 2025-10-14 17:59:21,087 | fedavg.py:242 | No fit_metrics_aggregation_fn provided
+FL_Test | DEBUG flwr 2025-10-14 17:59:21,088 | server.py:173 | evaluate_round 1: strategy sampled 2 clients (out of 2)
+FL_Test | DEBUG flwr 2025-10-14 17:59:24,887 | server.py:187 | evaluate_round 1 received 2 results and 0 failures
+FL_Test | DEBUG flwr 2025-10-14 17:59:24,887 | server.py:222 | fit_round 2: strategy sampled 2 clients (out of 2)
+FL_Test | DEBUG flwr 2025-10-14 17:59:45,891 | server.py:236 | fit_round 2 received 2 results and 0 failures
+FL_Test | DEBUG flwr 2025-10-14 17:59:45,903 | server.py:173 | evaluate_round 2: strategy sampled 2 clients (out of 2)
+FL_Test | DEBUG flwr 2025-10-14 17:59:47,398 | server.py:187 | evaluate_round 2 received 2 results and 0 failures
+FL_Test | INFO flwr 2025-10-14 17:59:47,398 | server.py:153 | FL finished in 66.22631424013525
+FL_Test | INFO flwr 2025-10-14 17:59:47,399 | app.py:226 | app_fit: losses_distributed [(1, 0.8239623606204987), (2, 0.7489182353019714)]
+FL_Test | INFO flwr 2025-10-14 17:59:47,399 | app.py:227 | app_fit: metrics_distributed_fit {}
+FL_Test | INFO flwr 2025-10-14 17:59:47,399 | app.py:228 | app_fit: metrics_distributed {'mape': [(1, 1.37344092130661), (2, 1.248355507850647)]}
+FL_Test | INFO flwr 2025-10-14 17:59:47,400 | app.py:229 | app_fit: losses_centralized []
+FL_Test | INFO flwr 2025-10-14 17:59:47,400 | app.py:230 | app_fit: metrics_centralized {}
