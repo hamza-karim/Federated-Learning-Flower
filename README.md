@@ -2,9 +2,6 @@
 # Branch: HFL
 # Purpose: Hierarchical Federated Learning experiments
 
-
-python3 client_fedavg.py --ip=10.226.47.254  --id=1 --num=2 --mod=lstm
-
 ## Fed Learning Project with Flower (flwr) Client and Server.
 <div align="center">
   <img src="images/fed framework.png" alt="Federated Learning Framework" width="300">

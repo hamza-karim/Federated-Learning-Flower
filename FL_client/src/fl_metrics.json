@@ -1,0 +1,44 @@
+{
+    "summary": {
+        "total_communication_rounds": 3,
+        "total_bytes_sent": 5961240,
+        "total_bytes_received": 5961240,
+        "total_communication_overhead": 11922480,
+        "total_training_time": 113.99464797973633
+    },
+    "per_round_metrics": {
+        "round_1": {
+            "duration_seconds": 50.776894092559814,
+            "bytes_sent_outgoing": 1987080,
+            "aggregation_time": 0.016094446182250977,
+            "num_parameters": 0,
+            "num_parameter_bytes": 0,
+            "bytes_sent": 1987080,
+            "bytes_received": 1987080,
+            "total_bytes": 3974160,
+            "num_clients_communicated": 2
+        },
+        "round_2": {
+            "duration_seconds": 31.81214141845703,
+            "bytes_sent_outgoing": 1987080,
+            "aggregation_time": 0.011002063751220703,
+            "num_parameters": 0,
+            "num_parameter_bytes": 0,
+            "bytes_sent": 1987080,
+            "bytes_received": 1987080,
+            "total_bytes": 3974160,
+            "num_clients_communicated": 2
+        },
+        "round_3": {
+            "duration_seconds": 31.405612468719482,
+            "bytes_sent_outgoing": 1987080,
+            "aggregation_time": 0.01128244400024414,
+            "num_parameters": 0,
+            "num_parameter_bytes": 0,
+            "bytes_sent": 1987080,
+            "bytes_received": 1987080,
+            "total_bytes": 3974160,
+            "num_clients_communicated": 2
+        }
+    }
+}

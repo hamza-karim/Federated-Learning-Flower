@@ -1,0 +1,6 @@
+the container should kept alive after execution to retrive plots and diagrams from them.
+model parameters is not coming up on server logs.
+delete containers on clients and server saperately on dashboard.
+client should show and calculate the threshold on dashboard.
+test / inference script running on server (error).
+the server should run the inference test with the threshold and show inference. 

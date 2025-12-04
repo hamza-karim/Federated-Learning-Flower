@@ -21,6 +21,6 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Change working directory back to /app/
 WORKDIR /app/src
 
-# Keep the container running
-# CMD ["tail", "-f", "/dev/null"]
 CMD ["python3", "client.py"]
+
+ 
