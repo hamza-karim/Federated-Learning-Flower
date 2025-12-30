@@ -1,40 +1,29 @@
 {
     "summary": {
-        "total_communication_rounds": 3,
-        "total_bytes_sent": 5961240,
-        "total_bytes_received": 5961240,
-        "total_communication_overhead": 11922480,
-        "total_training_time": 113.99464797973633
+        "total_communication_rounds": 2,
+        "total_bytes_sent": 3974160,
+        "total_bytes_received": 3974160,
+        "total_communication_overhead": 7948320,
+        "total_training_time": 25.218129873275757
     },
     "per_round_metrics": {
         "round_1": {
-            "duration_seconds": 50.776894092559814,
+            "duration_seconds": 21.259953498840332,
             "bytes_sent_outgoing": 1987080,
-            "aggregation_time": 0.016094446182250977,
-            "num_parameters": 0,
-            "num_parameter_bytes": 0,
+            "aggregation_time": 0.016553878784179688,
+            "num_parameters": 247937,
+            "num_parameter_bytes": 991748,
             "bytes_sent": 1987080,
             "bytes_received": 1987080,
             "total_bytes": 3974160,
             "num_clients_communicated": 2
         },
         "round_2": {
-            "duration_seconds": 31.81214141845703,
+            "duration_seconds": 3.958176374435425,
             "bytes_sent_outgoing": 1987080,
-            "aggregation_time": 0.011002063751220703,
-            "num_parameters": 0,
-            "num_parameter_bytes": 0,
-            "bytes_sent": 1987080,
-            "bytes_received": 1987080,
-            "total_bytes": 3974160,
-            "num_clients_communicated": 2
-        },
-        "round_3": {
-            "duration_seconds": 31.405612468719482,
-            "bytes_sent_outgoing": 1987080,
-            "aggregation_time": 0.01128244400024414,
-            "num_parameters": 0,
-            "num_parameter_bytes": 0,
+            "aggregation_time": 0.010631084442138672,
+            "num_parameters": 247937,
+            "num_parameter_bytes": 991748,
             "bytes_sent": 1987080,
             "bytes_received": 1987080,
             "total_bytes": 3974160,

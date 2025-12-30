@@ -169,6 +169,7 @@ class MetricsTracker:
                 'total_bytes_received': self.total_bytes_received,
                 'total_communication_overhead': self.total_bytes_sent + self.total_bytes_received,
                 'total_training_time': sum([self.get_round_duration(r) for r in self.round_start_times.keys()])
+               # 'average communication_per_round': (self.total_bytes_sent + self.total_bytes_received) / self.communication_rounds if self.communication_rounds > 0 else 0
             },
             'per_round_metrics': {}
         }
@@ -359,29 +360,30 @@ class SaveModelFedAvgStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedAvg)
         for _, fit_res in results:
             bytes_received += metrics_tracker.calculate_parameters_size(fit_res.parameters)
 
-        # Call parent aggregation (FedAvg)
-        aggregated_weights = super().aggregate_fit(rnd, results, failures)
+        # Unpack BOTH items correctly
+        aggregated_weights, aggregated_metrics = super().aggregate_fit(rnd, results, failures)
 
         aggregation_time = time.time() - aggregation_start
 
         if aggregated_weights is not None:
-            print(f"\n[Server] Saving round {rnd} aggregated weights (FedAvg)...")
+            print(f"\n[Server] Saving round {rnd} aggregated weights...")
+            
             # Convert parameters to numpy arrays for saving and metrics
             params_to_save = None
             try:
+                # Now this works because aggregated_weights is the Parameters object, not a tuple
                 params_to_save = fl.common.parameters_to_ndarrays(aggregated_weights) if hasattr(aggregated_weights, 'tensors') else aggregated_weights
             except Exception:
-                # fallback if conversion fails
                 if isinstance(aggregated_weights, list):
                     params_to_save = aggregated_weights
                 else:
                     params_to_save = []
 
-            # Save weights file (if we have arrays)
+            # Save weights file
             if isinstance(params_to_save, list) and len(params_to_save) > 0 and isinstance(params_to_save[0], np.ndarray):
                 np.savez(f"round-{rnd}-weights_fedavg.npz", *params_to_save)
 
-            # Track metrics - number of parameters (elements) and bytes
+            # Track metrics
             if isinstance(params_to_save, list) and all(isinstance(p, np.ndarray) for p in params_to_save):
                 num_parameters_elements = int(sum([p.size for p in params_to_save]))
                 num_parameter_bytes = int(sum([p.nbytes for p in params_to_save]))
@@ -391,7 +393,6 @@ class SaveModelFedAvgStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedAvg)
 
             metrics_tracker.add_compute_metrics(rnd, aggregation_time, num_parameters_elements, num_parameter_bytes)
 
-            # Retrieve previously stored bytes_sent (sent at configure_fit), and add communication overhead record
             bytes_sent = metrics_tracker.round_metrics.get(rnd, {}).get('bytes_sent_outgoing', 0)
             metrics_tracker.add_communication_overhead(rnd, bytes_sent, bytes_received, len(results))
 
@@ -399,7 +400,8 @@ class SaveModelFedAvgStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedAvg)
         metrics_tracker.end_round(rnd)
         metrics_tracker.print_round_summary(rnd)
 
-        return aggregated_weights
+        # RETURN BOTH ITEMS 
+        return aggregated_weights, aggregated_metrics
 
 
 class SaveModelFedProxStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedProx):
@@ -459,7 +461,7 @@ class SaveModelFedProxStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedPro
         return [(client, fl.common.EvaluateIns(parameters, config)) for client in selected_clients]
 
     def aggregate_fit(self, rnd, results, failures):
-        """Save aggregated model weights and track metrics after each round (FedProx)"""
+        """Save aggregated model weights and track metrics after each round"""
         aggregation_start = time.time()
 
         # Calculate bytes received from clients
@@ -467,15 +469,18 @@ class SaveModelFedProxStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedPro
         for _, fit_res in results:
             bytes_received += metrics_tracker.calculate_parameters_size(fit_res.parameters)
 
-        aggregated_weights = super().aggregate_fit(rnd, results, failures)
+        # Unpack BOTH items correctly
+        aggregated_weights, aggregated_metrics = super().aggregate_fit(rnd, results, failures)
 
         aggregation_time = time.time() - aggregation_start
 
         if aggregated_weights is not None:
-            print(f"\n[Server] Saving round {rnd} aggregated weights (FedProx)...")
+            print(f"\n[Server] Saving round {rnd} aggregated weights...")
+            
             # Convert parameters to numpy arrays for saving and metrics
             params_to_save = None
             try:
+                # Now this works because aggregated_weights is the Parameters object, not a tuple
                 params_to_save = fl.common.parameters_to_ndarrays(aggregated_weights) if hasattr(aggregated_weights, 'tensors') else aggregated_weights
             except Exception:
                 if isinstance(aggregated_weights, list):
@@ -483,11 +488,11 @@ class SaveModelFedProxStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedPro
                 else:
                     params_to_save = []
 
-            # Save weights file (if we have arrays)
+            # Save weights file
             if isinstance(params_to_save, list) and len(params_to_save) > 0 and isinstance(params_to_save[0], np.ndarray):
                 np.savez(f"round-{rnd}-weights_fedprox.npz", *params_to_save)
 
-            # Track metrics - number of parameters (elements) and bytes
+            # Track metrics
             if isinstance(params_to_save, list) and all(isinstance(p, np.ndarray) for p in params_to_save):
                 num_parameters_elements = int(sum([p.size for p in params_to_save]))
                 num_parameter_bytes = int(sum([p.nbytes for p in params_to_save]))
@@ -497,7 +502,6 @@ class SaveModelFedProxStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedPro
 
             metrics_tracker.add_compute_metrics(rnd, aggregation_time, num_parameters_elements, num_parameter_bytes)
 
-            # Retrieve previously stored bytes_sent (sent at configure_fit), and add communication overhead record
             bytes_sent = metrics_tracker.round_metrics.get(rnd, {}).get('bytes_sent_outgoing', 0)
             metrics_tracker.add_communication_overhead(rnd, bytes_sent, bytes_received, len(results))
 
@@ -505,8 +509,8 @@ class SaveModelFedProxStrategy(BaseRoundRobinStrategy, fl.server.strategy.FedPro
         metrics_tracker.end_round(rnd)
         metrics_tracker.print_round_summary(rnd)
 
-        return aggregated_weights
-
+        # RETURN BOTH ITEMS 
+        return aggregated_weights, aggregated_metrics
 
 # -------------------- Main --------------------
 if __name__ == "__main__":
