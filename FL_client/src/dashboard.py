@@ -80,20 +80,17 @@ st.markdown("""
         border-left: 4px solid #2a5298;
         margin-bottom: 0.8rem;
     }
-    /* Improvements for better spacing */
     .stExpander {
         background: white;
         border-radius: 8px;
         border: 1px solid #e0e0e0;
     }
-    /* Better form styling */
     .stTextInput > div > div > input {
         border-radius: 6px;
     }
     .stSelectbox > div > div {
         border-radius: 6px;
     }
-    /* Improve metric cards */
     div[data-testid="metric-container"] {
         background: white;
         padding: 1rem;
@@ -102,6 +99,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 LOGO_PATH = "./Picture1.png" 
 
 col1, col2 = st.columns([3, 1])
@@ -131,7 +129,6 @@ with col2:
     </div>
     """, unsafe_allow_html=True)
 
-# Available devices - hostname is used for SSH, display_name shown in dashboard
 AVAILABLE_DEVICES = {
     "10.226.44.86": {
         "hostname": "c2sragx04",
@@ -145,17 +142,16 @@ AVAILABLE_DEVICES = {
         "hostname": "c2srnano08",
         "display_name": "Nano 08"
     },
-        "10.226.46.8": {
+    "10.226.46.8": {
         "hostname": "hamzakarim",
         "display_name": "Nano 10"
     },
-        "10.226.47.64": {
+    "10.226.47.64": {
         "hostname": "hamzakarim",
         "display_name": "Nano 13"
     },
 }
 
-# Function to check device connectivity
 def check_device_status(hostname, ip):
     try:
         result = subprocess.run(
@@ -168,7 +164,6 @@ def check_device_status(hostname, ip):
     except:
         return False
 
-# Dashboard Overview Section
 st.markdown('<div class="section-header">System Overview</div>', unsafe_allow_html=True)
 
 col1, col2, col3, col4 = st.columns(4)
@@ -186,7 +181,12 @@ with col2:
 
 with col3:
     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-    total_containers = sum(d['end'] - d['start'] + 1 for d in st.session_state.get('clients', []))
+    total_containers = 0
+    for d in st.session_state.get('clients', []):
+        if 'client_ids' in d:
+            total_containers += len(d['client_ids'])
+        else:
+            total_containers += d['end'] - d['start'] + 1
     st.metric("Total Containers", total_containers)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -195,22 +195,18 @@ with col4:
     st.metric("Last Update", datetime.now().strftime("%H:%M:%S"))
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Device Status Section
 st.markdown('<div class="section-header">Device Status</div>', unsafe_allow_html=True)
 
-# Initialize device status cache in session state
 if 'device_status_cache' not in st.session_state:
     st.session_state.device_status_cache = {}
 
 with st.expander("View All Available Devices", expanded=False):
     if st.button("🔄 Refresh Status", key="refresh_status"):
-        # Clear cache and check all devices
         st.session_state.device_status_cache = {}
         for ip, device_info in AVAILABLE_DEVICES.items():
             st.session_state.device_status_cache[ip] = check_device_status(device_info["hostname"], ip)
         st.rerun()
     
-    # Only check status if cache is empty (first time)
     if not st.session_state.device_status_cache:
         with st.spinner("Checking device status..."):
             for ip, device_info in AVAILABLE_DEVICES.items():
@@ -240,18 +236,16 @@ with st.expander("View All Available Devices", expanded=False):
 
 st.markdown("---")
 
-# Configuration Section
 st.markdown('<div class="section-header">FL Configuration</div>', unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    # Server selection from available devices
     server_device = st.selectbox(
         "Server Device",
         options=list(AVAILABLE_DEVICES.keys()),
         format_func=lambda x: f"{AVAILABLE_DEVICES[x]['display_name']} ({x})"
     )
-    server_ip = server_device  # Set server_ip to selected device IP
+    server_ip = server_device
     server_port = st.text_input("Port", "8080")
 with col2:
     model = st.selectbox("Model", ["lstm", "bilstm"])
@@ -264,13 +258,11 @@ image = st.text_input("Docker Image", "hamzakarim07/flwr_client_hfl:latest")
 
 st.markdown("---")
 
-# Client Devices Section
 st.markdown('<div class="section-header">Edge Device Configuration</div>', unsafe_allow_html=True)
 
 if 'clients' not in st.session_state:
     st.session_state.clients = []
 
-# Add device form
 with st.expander("➕ Add New Device", expanded=len(st.session_state.clients) == 0):
     with st.form("add_device", clear_on_submit=True):
         c1, c2 = st.columns(2)
@@ -282,35 +274,42 @@ with st.expander("➕ Add New Device", expanded=len(st.session_state.clients) ==
             )
         with c2:
             client_range = st.text_input(
-                "Client ID Range (e.g., 1-3 or 2)", 
-                value="1"
+                "Client IDs (e.g., 1-3, 5, 7-9)", 
+                value="1",
+                help="Enter ranges (1-3), single IDs (5), or comma-separated (1,3,5)"
             )
 
         add_btn = st.form_submit_button("Add Device to Deployment", use_container_width=True)
 
         if add_btn:
             try:
-                # Parse input range
-                if "-" in client_range:
-                    start_id, end_id = map(int, client_range.split("-"))
-                else:
-                    start_id = end_id = int(client_range)
-
-                if any(d['ip'] == selected_ip for d in st.session_state.clients):
+                client_ids = []
+                parts = [p.strip() for p in client_range.split(',')]
+                
+                for part in parts:
+                    if '-' in part:
+                        start, end = map(int, part.split('-'))
+                        client_ids.extend(range(start, end + 1))
+                    else:
+                        client_ids.append(int(part))
+                
+                client_ids = sorted(set(client_ids))
+                
+                if not client_ids:
+                    st.error("⚠️ No valid client IDs entered")
+                elif any(d['ip'] == selected_ip for d in st.session_state.clients):
                     st.error(f"Device {AVAILABLE_DEVICES[selected_ip]['display_name']} is already configured")
                 else:
                     st.session_state.clients.append({
                         "hostname": AVAILABLE_DEVICES[selected_ip]["hostname"],
                         "display_name": AVAILABLE_DEVICES[selected_ip]["display_name"],
                         "ip": selected_ip,
-                        "start": start_id,
-                        "end": end_id
+                        "client_ids": client_ids
                     })
                     st.rerun()
             except ValueError:
-                st.error("⚠️ Please enter a valid range (e.g., 1-3 or 2)")
+                st.error("⚠️ Please enter valid format (e.g., 1-3, 5, 7 or 1,5,7)")
 
-# Display configured devices
 if st.session_state.clients:
     st.markdown(f"""
     <div style="background: linear-gradient(to right, #e8f4f8, #f0f9ff); 
@@ -336,8 +335,13 @@ if st.session_state.clients:
             st.caption(f"IP: {device['ip']}")
         
         with col2:
-            st.write(f"Clients: {device['start']} to {device['end']}")
-            st.caption(f"({device['end'] - device['start'] + 1} containers)")
+            if 'client_ids' in device:
+                ids_str = ', '.join(map(str, device['client_ids']))
+                st.write(f"Clients: {ids_str}")
+                st.caption(f"({len(device['client_ids'])} containers)")
+            else:
+                st.write(f"Clients: {device['start']} to {device['end']}")
+                st.caption(f"({device['end'] - device['start'] + 1} containers)")
         
         with col3:
             if st.button("Remove", key=f"rm_{idx}", use_container_width=True):
@@ -362,14 +366,12 @@ if st.session_state.clients:
 else:
     st.info("No devices configured for deployment yet. Add your first device above.")
 
-# Network Topology
 st.markdown('<div class="section-header">Network Topology</div>', unsafe_allow_html=True)
 
 dot = Digraph(format="png")
 dot.attr(rankdir='TB', bgcolor='transparent', fontname='Helvetica', fontsize='10')
 dot.attr('edge', penwidth='2')
 
-# --- Server Node ---
 server_display = AVAILABLE_DEVICES[server_ip]["display_name"]
 dot.node(
     'server',
@@ -381,13 +383,17 @@ dot.node(
     penwidth='2'
 )
 
-# --- Client Clusters ---
 for idx, device in enumerate(st.session_state.clients):
     with dot.subgraph(name=f'cluster_{idx}') as c:
         c.attr(style='rounded,dashed', color='#2a5298', label=f"{device['display_name']}")
         c.attr(rank='same')
         
-        for cid in range(device['start'], device['end']+1):
+        if 'client_ids' in device:
+            client_list = device['client_ids']
+        else:
+            client_list = range(device['start'], device['end'] + 1)
+        
+        for cid in client_list:
             client_node = f"{device['hostname']}_c{cid}"
             is_online = st.session_state.device_status_cache.get(device['ip'], True)
             fill_color = '#a8e6a1' if is_online else '#fca5a5'
@@ -410,7 +416,6 @@ st.graphviz_chart(dot)
 
 st.markdown("---")
                         
-# Deployment Section
 st.markdown('<div class="section-header">Deployment Control</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
@@ -425,7 +430,12 @@ with col1:
 docker pull {image}
 docker ps -aq --filter 'name=flwr-client' | xargs -r docker rm -f
 """
-                    for cid in range(device["start"], device["end"] + 1):
+                    if 'client_ids' in device:
+                        client_list = device['client_ids']
+                    else:
+                        client_list = range(device['start'], device['end'] + 1)
+                    
+                    for cid in client_list:
                         script += f"""
 docker run -d --name flwr-client{cid} \\
   --runtime=nvidia --gpus all \\
@@ -447,7 +457,8 @@ docker run -d --name flwr-client{cid} \\
                             capture_output=True,
                             text=True
                         )
-                        st.success(f"✓ Successfully deployed {device['end'] - device['start'] + 1} clients")
+                        num_deployed = len(client_list) if 'client_ids' in device else device['end'] - device['start'] + 1
+                        st.success(f"✓ Successfully deployed {num_deployed} clients")
                     except subprocess.CalledProcessError as e:
                         st.error(f"✗ Deployment failed")
                         with st.expander("Error details"):
@@ -486,13 +497,11 @@ with col2:
                 except subprocess.CalledProcessError:
                     st.error(f"✗ flwr-server_hfl cleanup failed (device may be unreachable)")
 
-# Training Results Visualization
 st.markdown('<div class="section-header">Training Results</div>', unsafe_allow_html=True)
 
 server_container = "flwr-server_hfl"
 log_file_path = "/app/src/log.txt"  
 
-# Two tabs for server logs and client images
 tab1, tab2 = st.tabs(["📊 Server Training Metrics", "🖼️ Client Training Images"])
 
 with tab1:
@@ -592,9 +601,8 @@ with tab1:
 
                                 final_mape = mape_values[-1]
                                 st.metric(label="Final MAPE", value=f"{final_mape:.2f}%")
-                                                       
+                                                                        
                             
-                            # --- Fetch fl_metrics.json ---
                             ssh_cmd_json = f"docker cp flwr-server_hfl:/app/src/fl_metrics.json /tmp/fl_metrics.json"
                             subprocess.run([
                                 "ssh", "-o", "StrictHostKeyChecking=no",
@@ -607,16 +615,12 @@ with tab1:
                                 "fl_metrics.json"
                             ], check=True)
 
-                            # --- Parse JSON ---
                             with open("fl_metrics.json", "r") as f:
                                 metrics_json = json.load(f)
 
                             summary = metrics_json.get("summary", {})
                             per_round = metrics_json.get("per_round_metrics", {})
 
-                            # ============================================================
-                            # SECTION 1: Summary Statistics Table
-                            # ============================================================
                             st.subheader("📊 Federated Learning Summary")
 
                             col1, col2, col3 = st.columns(3)
@@ -629,7 +633,6 @@ with tab1:
                                 total_comm = summary.get("total_communication_overhead", 0)
                                 st.metric("Total Communication", f"{total_comm/1024/1024:.2f} MB")
 
-                            # Summary table
                             summary_df = pd.DataFrame([{
                                 "Total Rounds": summary.get("total_communication_rounds", 0),
                                 "Total Bytes Sent": f"{summary.get('total_bytes_sent', 0):,} bytes ({summary.get('total_bytes_sent', 0)/1024/1024:.2f} MB)",
@@ -647,7 +650,10 @@ with tab1:
 
                             if per_round:
                                 rounds_data = []
-                                for r_key in sorted(per_round.keys()):
+                                # FIX: Sort keys numerically instead of alphabetically to prevent zig-zag
+                                sorted_keys = sorted(per_round.keys(), key=lambda x: int(x.split("_")[1]))
+                                
+                                for r_key in sorted_keys:
                                     round_num = int(r_key.split("_")[1])
                                     round_data = per_round[r_key]
                                     rounds_data.append({
@@ -682,7 +688,10 @@ with tab1:
                                     rounds, durations, bytes_sent, bytes_received, total_bytes = [], [], [], [], []
                                     aggregation_times, num_clients = [], []
                                     
-                                    for r_key in sorted(per_round.keys()):
+                                    # FIX: Use the numerically sorted keys for plotting
+                                    sorted_keys = sorted(per_round.keys(), key=lambda x: int(x.split("_")[1]))
+                                    
+                                    for r_key in sorted_keys:
                                         round_num = int(r_key.split("_")[1])
                                         round_data = per_round[r_key]
                                         
@@ -786,20 +795,51 @@ with tab1:
                                         # Communication Efficiency (bytes per second)
                                         fig_eff, ax_eff = plt.subplots(figsize=(8, 5))
                                         comm_efficiency = [tb/d if d > 0 else 0 for tb, d in zip(total_bytes, durations)]
-                                        ax_eff.plot(rounds, [ce/1024/1024 for ce in comm_efficiency], 
-                                                marker='s', linewidth=2, markersize=8, color='#e67e22',
-                                                markerfacecolor='#f39c12', markeredgecolor='black', markeredgewidth=1.5)
+                                        
+                                        # Calculate average throughput
+                                        avg_throughput = sum(comm_efficiency) / len(comm_efficiency) if comm_efficiency else 0
+                                        
+                                        # Plot average as horizontal line
+                                        ax_eff.axhline(y=avg_throughput/1024, color='#e74c3c', linestyle='--', 
+                                                    linewidth=3, label=f'Average: {avg_throughput/1024:.2f} KB/s', 
+                                                    alpha=0.8)
+                                        
+                                        # Plot individual points
+                                        ax_eff.plot(rounds, [ce/1024 for ce in comm_efficiency], 
+                                                    marker='o', linewidth=2, markersize=8, color='#3498db',
+                                                    markerfacecolor='#5dade2', markeredgecolor='black', 
+                                                    markeredgewidth=1.5, label='Per Round', alpha=0.7)
+                                        
                                         ax_eff.set_xlabel("Round Number", fontsize=12, fontweight='bold')
-                                        ax_eff.set_ylabel("MB/second", fontsize=12, fontweight='bold')
+                                        ax_eff.set_ylabel("Throughput (KB/second)", fontsize=12, fontweight='bold')
                                         ax_eff.set_title("Communication Throughput", fontsize=13, fontweight='bold')
                                         ax_eff.grid(True, linestyle='--', alpha=0.3)
                                         ax_eff.set_xticks(rounds)
+                                        ax_eff.legend(loc='best')
                                         
+                                        # Format y-axis to show 2 decimal places
+                                        from matplotlib.ticker import FormatStrFormatter
+                                        ax_eff.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+                                        
+                                        # Add value labels on points with proper formatting
                                         for r, ce in zip(rounds, comm_efficiency):
-                                            ax_eff.text(r, ce/1024/1024, f'{ce/1024/1024:.2f}', 
-                                                    ha='center', va='bottom', fontsize=9)
+                                            ax_eff.text(r, ce/1024, f'{ce/1024:.2f}', 
+                                                        ha='center', va='bottom', fontsize=8, rotation=0)
+                                        
+                                        # Add average value annotation
+                                        ax_eff.text(rounds[-1], avg_throughput/1024, 
+                                                    f' Avg: {avg_throughput/1024:.2f} KB/s',
+                                                    ha='left', va='center', fontsize=10, fontweight='bold',
+                                                    bbox=dict(boxstyle='round,pad=0.5', facecolor='yellow', alpha=0.7))
                                         
                                         st.pyplot(fig_eff)
+                                        
+                                        # Display average as metric
+                                        st.metric(
+                                            label="Average Throughput", 
+                                            value=f"{avg_throughput/1024:.2f} KB/s",
+                                            help="Average communication throughput across all rounds"
+                                        )
 
                     except subprocess.CalledProcessError as e:
                         st.error(f"Failed to fetch logs from {server_display} ({server_ip})")
@@ -817,8 +857,15 @@ with tab2:
         
         with col1:
             client_options = []
+            
+            # FIX: Properly indented loop to collect ALL clients from ALL devices
             for device in st.session_state.clients:
-                for cid in range(device['start'], device['end'] + 1):
+                if 'client_ids' in device:
+                    client_list = device['client_ids']
+                else:
+                    client_list = range(device['start'], device['end'] + 1)
+                
+                for cid in client_list:
                     client_options.append({
                         'label': f"{device['display_name']} - Client {cid}",
                         'device': device,
@@ -834,96 +881,98 @@ with tab2:
                 selected_client = client_options[selected_idx]
         
         with col2:
-            st.write("")  # Spacer
-            st.caption(f"Device: **{selected_client['device']['display_name']}**")
-            st.caption(f"IP: **{selected_client['device']['ip']}**")
+            if client_options:
+                st.write("")  # Spacer
+                st.caption(f"Device: **{selected_client['device']['display_name']}**")
+                st.caption(f"IP: **{selected_client['device']['ip']}**")
         
-        # ---------------- List PNG Images in Container ----------------
-        device = selected_client['device']
-        client_id = selected_client['client_id']
-        container_name = f"flwr-client{client_id}"
+        if client_options:
+            # ---------------- List PNG Images in Container ----------------
+            device = selected_client['device']
+            client_id = selected_client['client_id']
+            container_name = f"flwr-client{client_id}"
 
-        try:
-            list_cmd = f'docker exec {container_name} sh -c "ls /app/src/*.png 2>/dev/null || true"'
-            result = subprocess.run(
-                ["ssh", "-o", "StrictHostKeyChecking=no",
-                 f"{device['hostname']}@{device['ip']}", list_cmd],
-                check=True, capture_output=True, text=True
-            )
-            available_images = [os.path.basename(x.strip()) for x in result.stdout.splitlines() if x.strip()]
-        except subprocess.CalledProcessError:
-            available_images = []
+            try:
+                list_cmd = f'docker exec {container_name} sh -c "ls /app/src/*.png 2>/dev/null || true"'
+                result = subprocess.run(
+                    ["ssh", "-o", "StrictHostKeyChecking=no",
+                     f"{device['hostname']}@{device['ip']}", list_cmd],
+                    check=True, capture_output=True, text=True
+                )
+                available_images = [os.path.basename(x.strip()) for x in result.stdout.splitlines() if x.strip()]
+            except subprocess.CalledProcessError:
+                available_images = []
 
-        if available_images:
-            image_filename = st.selectbox(
-                "Select Image File",
-                available_images,
-                help="Select a PNG image file from the live container"
-            )
-        else:
-            st.warning("⚠️ No PNG images found in the container.")
-            image_filename = st.text_input(
-                "Image Filename Pattern",
-                value="Fedavg_LSTM_25clients_train_mape_histogram.png",
-                help="Enter the PNG file name manually"
-            )
-        
-        # ---------------- Ensure session_state for fetched images ----------------
-        if 'fetched_images' not in st.session_state:
-            st.session_state.fetched_images = []
-
-        # ---------------- Display Selected Image ----------------
-        if st.button("🖼️ Show Selected Image", use_container_width=True):
-            with st.spinner(f"Fetching image from {device['display_name']} - Client {client_id}..."):
-                try:
-                    # Read image bytes directly from container
-                    cat_cmd = f'docker exec {container_name} cat /app/src/{image_filename}'
-                    result = subprocess.run(
-                        ["ssh", "-o", "StrictHostKeyChecking=no",
-                         f"{device['hostname']}@{device['ip']}", cat_cmd],
-                        check=True, capture_output=True
-                    )                    
-                    image_bytes = io.BytesIO(result.stdout)
-                    img = Image.open(image_bytes)
-
-                    # Store in session_state
-                    st.session_state.fetched_images.append({
-                        'img': img.copy(),
-                        'from': f"{device['display_name']} - Client {client_id}",
-                        'filename': image_filename
-                    })
-                    st.success(f"✅ Image fetched successfully from {device['display_name']} - Client {client_id}")
-
-                except subprocess.CalledProcessError as e:
-                    st.error(f"❌ Failed to fetch image from container")
-                    with st.expander("Error details"):
-                        st.code(e.stderr if e.stderr else str(e))
-        
-        # ---------------- Display last 2 fetched images side by side ----------------
-        if st.session_state.fetched_images:
-            st.markdown("---")
-            st.markdown("### Fetched Training Images")
-
-            images_to_show = st.session_state.fetched_images[-2:]
-            cols = st.columns(len(images_to_show))
+            if available_images:
+                image_filename = st.selectbox(
+                    "Select Image File",
+                    available_images,
+                    help="Select a PNG image file from the live container"
+                )
+            else:
+                st.warning("⚠️ No PNG images found in the container.")
+                image_filename = st.text_input(
+                    "Image Filename Pattern",
+                    value="Fedavg_LSTM_25clients_train_mape_histogram.png",
+                    help="Enter the PNG file name manually"
+                )
             
-            for idx, img_info in enumerate(images_to_show):
-                with cols[idx]:
-                    st.markdown(f"**From:** {img_info['from']}")
-                    st.image(img_info['img'], width=800)
+            # ---------------- Ensure session_state for fetched images ----------------
+            if 'fetched_images' not in st.session_state:
+                st.session_state.fetched_images = []
 
-                    # Convert image to bytes for download
-                    buf = io.BytesIO()
-                    img_info['img'].save(buf, format="PNG")
-                    buf.seek(0)
+            # ---------------- Display Selected Image ----------------
+            if st.button("🖼️ Show Selected Image", use_container_width=True):
+                with st.spinner(f"Fetching image from {device['display_name']} - Client {client_id}..."):
+                    try:
+                        # Read image bytes directly from container
+                        cat_cmd = f'docker exec {container_name} cat /app/src/{image_filename}'
+                        result = subprocess.run(
+                            ["ssh", "-o", "StrictHostKeyChecking=no",
+                             f"{device['hostname']}@{device['ip']}", cat_cmd],
+                            check=True, capture_output=True
+                        )                    
+                        image_bytes = io.BytesIO(result.stdout)
+                        img = Image.open(image_bytes)
 
-                    st.download_button(
-                        label=f"💾 Download Image",
-                        data=buf,
-                        file_name=img_info['filename'],
-                        mime="image/png",
-                        key=f"download_{img_info['filename']}_{idx}"
-                    )
+                        # Store in session_state
+                        st.session_state.fetched_images.append({
+                            'img': img.copy(),
+                            'from': f"{device['display_name']} - Client {client_id}",
+                            'filename': image_filename
+                        })
+                        st.success(f"✅ Image fetched successfully from {device['display_name']} - Client {client_id}")
+
+                    except subprocess.CalledProcessError as e:
+                        st.error(f"❌ Failed to fetch image from container")
+                        with st.expander("Error details"):
+                            st.code(e.stderr if e.stderr else str(e))
+            
+            # ---------------- Display last 2 fetched images side by side ----------------
+            if st.session_state.fetched_images:
+                st.markdown("---")
+                st.markdown("### Fetched Training Images")
+
+                images_to_show = st.session_state.fetched_images[-2:]
+                cols = st.columns(len(images_to_show))
+                
+                for idx, img_info in enumerate(images_to_show):
+                    with cols[idx]:
+                        st.markdown(f"**From:** {img_info['from']}")
+                        st.image(img_info['img'], width=800)
+
+                        # Convert image to bytes for download
+                        buf = io.BytesIO()
+                        img_info['img'].save(buf, format="PNG")
+                        buf.seek(0)
+
+                        st.download_button(
+                            label=f"💾 Download Image",
+                            data=buf,
+                            file_name=img_info['filename'],
+                            mime="image/png",
+                            key=f"download_{img_info['filename']}_{idx}"
+                        )
 
 st.markdown("---")
 
