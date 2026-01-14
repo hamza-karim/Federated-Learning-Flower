@@ -1,4 +1,5 @@
 # Muhammad Hamza Karim
+# FINAL CLIENT CODE - Enhanced SegFault Protection
 
 import os
 # Force CPU/GPU threading limits to prevent resource fighting
@@ -7,7 +8,12 @@ os.environ["TF_GPU_ALLOCATOR"] = "default"
 os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
 os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 
+# Set matplotlib backend BEFORE importing pyplot
+import matplotlib
+matplotlib.use("Agg")
+
 import joblib
+import json
 import argparse
 import flwr as fl
 import numpy as np
@@ -24,23 +30,23 @@ import faulthandler
 import warnings
 from keras import Sequential
 from keras.layers import LSTM, RepeatVector, TimeDistributed, Dense, Bidirectional
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from typing import Tuple, Dict
+from datetime import datetime
 
 warnings.simplefilter('ignore')
 faulthandler.enable()
 
 # ---------------- Environment Variables ---------------- #
-# The dashboard sends these via -e flags
 SERVER_IP = os.getenv("SERVER_IP", "10.226.47.97")
 SERVER_PORT = os.getenv("SERVER_PORT", "8080")
-CLIENT_ID = int(os.getenv("CLIENT_ID", "1"))  # <--- CRITICAL: Reads ID from Dashboard
+CLIENT_ID = int(os.getenv("CLIENT_ID", "1"))  
 TOTAL_CLIENTS = int(os.getenv("TOTAL_CLIENTS", "20"))
 EPOCHS = int(os.getenv("EPOCHS", "5"))
 MODEL = os.getenv("MODEL", "lstm")
 ALGO = os.getenv("ALGO", "fedavg")
+DISABLE_PLOTS = os.getenv("DISABLE_PLOTS", "false").lower() == "true"
+THRESHOLD_PERCENTILE = float(os.getenv("THRESHOLD_PERCENTILE", "99"))
 
 SERVER_ADDR = f"{SERVER_IP}:{SERVER_PORT}"
 temp_loss = []
@@ -50,6 +56,22 @@ temp_mape = []
 np.random.seed(42)
 random.seed(42)
 tf.random.set_seed(42)
+
+# ---------------- Safe Plotting Wrapper ---------------- #
+def safe_plot(plot_func, filename, *args, **kwargs):
+    """Wrapper to safely execute plotting with proper error handling"""
+    if DISABLE_PLOTS:
+        print(f"Plotting disabled. Skipping: {filename}")
+        return
+    
+    try:
+        plot_func(*args, **kwargs)
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        print(f"✓ Plot saved: {filename}")
+    except Exception as e:
+        print(f"✗ Plot failed ({filename}): {e}")
+    finally:
+        plt.close('all')  # Ensure all figures are closed
 
 # ---------------- Dataset Loading ---------------- #
 def load_dataset():
@@ -62,23 +84,22 @@ def load_dataset():
             df = dataframe[['datetimeCST', 'Hz_mod']]
             df.set_index('datetimeCST', inplace=True)
 
-    # FIX 1: Convert to NumPy immediately to avoid SegFault in Matplotlib
-    x_vals = df.index.to_numpy()
-
-    try:
+    def plot_frequency_week():
+        # Use .values for numeric y-axis (Hz_mod)
+        # Use to_pydatetime() for datetime x-axis
+        x_vals = df.index.to_pydatetime()
+        y_vals = df['Hz_mod'].values
+        
         plt.figure(figsize=(12, 6))
-        plt.plot(x_vals, df['Hz_mod'].values, linewidth=1)
+        plt.plot(x_vals, y_vals, linewidth=1)
         plt.title("Frequency Variation (Hz) Over One Week", fontsize=14, fontweight='bold')
         plt.xlabel("Time (Days)", fontsize=12)
         plt.ylabel("Frequency (Hz)", fontsize=12)
         plt.gcf().autofmt_xdate()
         plt.grid(True, linestyle='--', alpha=0.6)
         plt.tight_layout()
-        plt.savefig("frequency_week_plot.png", dpi=300, bbox_inches='tight')
-        plt.close()
-    except Exception as e:
-        print("Warning: plotting failed in load_dataset():", e)
 
+    safe_plot(plot_frequency_week, "frequency_week_plot.png")
     return df
 
 # ---------------- Dataset Preprocessing ---------------- #
@@ -87,18 +108,30 @@ def preprocess_dataset(df: pd.DataFrame, total_clients: int, client_id: int) -> 
     total_rows = len(normal_data)
     rows_per_client = total_rows // total_clients
 
+    # Print dataset distribution info
+    print(f"\n{'='*60}")
+    print(f"Dataset Distribution Summary")
+    print(f"{'='*60}")
+    print(f"Total dataset size: {total_rows:,} rows")
+    print(f"Rows per client: {rows_per_client:,} rows")
+    print(f"Total clients: {total_clients}")
+    print(f"{'='*60}\n")
+
     # Plot slices for all clients
-    try:
+    def plot_all_clients():
         plt.figure(figsize=(12, 6))
         colors = plt.cm.tab20(np.linspace(0, 1, total_clients))
+        
         for i in range(total_clients):
             start_idx = i * rows_per_client
             end_idx = start_idx + rows_per_client if i != total_clients - 1 else total_rows
             client_slice = normal_data.iloc[start_idx:end_idx]
             
-            # FIX 1: Safe plotting
-            x_vals = client_slice.index.to_numpy()
-            plt.plot(x_vals, client_slice['Hz_mod'].values, color=colors[i], label=f'Client {i+1}', linewidth=1)
+            # Convert datetime index to Python datetime objects
+            x_vals = client_slice.index.to_pydatetime()
+            y_vals = client_slice['Hz_mod'].values
+            
+            plt.plot(x_vals, y_vals, color=colors[i], label=f'Client {i+1}', linewidth=1)
             
         plt.title(f"Frequency Variation (Hz) Divided for {total_clients} Clients", fontsize=14, fontweight='bold')
         plt.xlabel("Time (Days)", fontsize=12)
@@ -107,36 +140,45 @@ def preprocess_dataset(df: pd.DataFrame, total_clients: int, client_id: int) -> 
         plt.legend()
         plt.gcf().autofmt_xdate()
         plt.tight_layout()
-        plt.savefig(f"frequency_divided_{total_clients}_clients.png", dpi=300, bbox_inches='tight')
-        plt.close()
-    except Exception as e:
-        print(f"Global plotting failed: {e}")
+
+    safe_plot(plot_all_clients, f"frequency_divided_{total_clients}_clients.png")
 
     # Slice for this client
     start_idx = (client_id - 1) * rows_per_client
     end_idx = start_idx + rows_per_client if client_id != total_clients else total_rows
     client_data = normal_data.iloc[start_idx:end_idx]
+    
+    # Print this client's data allocation
+    print(f"Client {client_id} Data Allocation:")
+    print(f"  - Total rows: {len(client_data):,}")
+    print(f"  - Start index: {start_idx:,}")
+    print(f"  - End index: {end_idx:,}")
+    print(f"  - Percentage of total: {(len(client_data)/total_rows)*100:.2f}%")
 
-    # ---------------- Plot Client Dataset ---------------- #
-    try:
+    # Plot this client's dataset
+    def plot_client_data():
+        x_vals = client_data.index.to_pydatetime()
+        y_vals = client_data['Hz_mod'].values
+        
         plt.figure(figsize=(12, 6))
-        x_vals = client_data.index.to_numpy()
-        plt.plot(x_vals, client_data['Hz_mod'].values, color='teal', linewidth=1)
-        plt.title(f"Frequency Variation (Hz) for Client {client_id}", fontsize=14, fontweight='bold')
+        plt.plot(x_vals, y_vals, color='teal', linewidth=1)
+        plt.title(f"Frequency Variation (Hz) for Client {client_id}\nDataset Size: {len(client_data):,} rows ({(len(client_data)/total_rows)*100:.2f}% of total)", 
+                 fontsize=14, fontweight='bold')
         plt.xlabel("Time (Days)", fontsize=12)
         plt.ylabel("Frequency (Hz)", fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.6)
         plt.gcf().autofmt_xdate()
         plt.tight_layout()
-        plt.savefig(f"client_{client_id}_frequency_plot.png", dpi=300, bbox_inches='tight')
-        plt.close()
-    except Exception as e:
-        print(f"Client plotting failed: {e}")
+
+    safe_plot(plot_client_data, f"client_{client_id}_frequency_plot.png")
 
     # Train/test split
     train_size = int(0.9 * len(client_data))
     train = client_data.iloc[:train_size]
     test = client_data.iloc[train_size:]
+    
+    print(f"  - Train rows: {len(train):,} (90%)")
+    print(f"  - Test rows: {len(test):,} (10%)\n")
 
     seq_size = 20
     def to_sequence(x, y, seq_size=1):
@@ -148,6 +190,14 @@ def preprocess_dataset(df: pd.DataFrame, total_clients: int, client_id: int) -> 
 
     X_train, y_train = to_sequence(train[['Hz_mod']], train['Hz_mod'], seq_size)
     X_test, y_test = to_sequence(test[['Hz_mod']], test['Hz_mod'], seq_size)
+    
+    # Print sequence data shapes
+    print(f"Sequence Data Shapes (seq_size={seq_size}):")
+    print(f"  - X_train shape: {X_train.shape} (samples, timesteps, features)")
+    print(f"  - y_train shape: {y_train.shape}")
+    print(f"  - X_test shape: {X_test.shape}")
+    print(f"  - y_test shape: {y_test.shape}")
+    print(f"{'='*60}\n")
 
     return X_train, y_train, X_test, y_test
 
@@ -174,7 +224,7 @@ def build_bilstm(input_shape):
     model.compile(optimizer='adam', loss='mae', metrics=["mape"])
     return model
 
-# ---------------- Flower Clients (Updated with get_properties) ---------------- #
+# ---------------- Flower Clients ---------------- #
 class FedAvgClient(fl.client.NumPyClient):
     def __init__(self, model, X_train, y_train, X_test, y_test, client_id):
         self.model = model
@@ -182,9 +232,8 @@ class FedAvgClient(fl.client.NumPyClient):
         self.y_train = y_train
         self.X_test = X_test
         self.y_test = y_test
-        self.client_id = client_id  # Store ID
+        self.client_id = client_id 
 
-    # FIX 2: Implement get_properties so server knows who this is
     def get_properties(self, config):
         return {"client_id": int(self.client_id)}
 
@@ -193,8 +242,16 @@ class FedAvgClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.model.set_weights(parameters)
-        self.model.fit(self.X_train, self.y_train, epochs=EPOCHS, batch_size=32, validation_split=0.2, verbose=1)
-        return self.model.get_weights(), len(self.X_train), {}
+        history = self.model.fit(
+            self.X_train, 
+            self.y_train, 
+            epochs=EPOCHS, 
+            batch_size=32, 
+            validation_split=0.2, 
+            verbose=1
+        )
+        final_train_loss = history.history['loss'][-1]
+        return self.model.get_weights(), len(self.X_train), {"train_loss": final_train_loss}
 
     def evaluate(self, parameters, config):
         self.model.set_weights(parameters)
@@ -212,11 +269,10 @@ class FedProxClient(fl.client.NumPyClient):
         self.y_train = y_train
         self.X_test = X_test
         self.y_test = y_test
-        self.client_id = client_id # Store ID
+        self.client_id = client_id 
         self.global_weights = None
         self.mu = 0.0
 
-    # FIX 2: Implement get_properties
     def get_properties(self, config):
         return {"client_id": int(self.client_id)}
 
@@ -228,8 +284,16 @@ class FedProxClient(fl.client.NumPyClient):
         self.global_weights = parameters
         self.mu = config.get("proximal_mu", 0.0)
         self.model.compile(optimizer="adam", loss=self.fedprox_loss)
-        self.model.fit(self.X_train, self.y_train, epochs=EPOCHS, batch_size=32, validation_split=0.2, verbose=1)
-        return self.model.get_weights(), len(self.X_train), {}
+        history = self.model.fit(
+            self.X_train, 
+            self.y_train, 
+            epochs=EPOCHS, 
+            batch_size=32, 
+            validation_split=0.2, 
+            verbose=1
+        )
+        final_train_loss = history.history['loss'][-1]
+        return self.model.get_weights(), len(self.X_train), {"train_loss": final_train_loss}
 
     def fedprox_loss(self, y_true, y_pred):
         base_loss = tf.reduce_mean(tf.abs(y_true - y_pred))
@@ -256,6 +320,8 @@ if __name__ == "__main__":
     print(f"Model Selected : {MODEL}")
     print(f"Iteration Per Round : {EPOCHS}")
     print(f"Algorithm      : {ALGO.capitalize()}")
+    print(f"Plotting       : {'Disabled' if DISABLE_PLOTS else 'Enabled'}")
+    print(f"Threshold Percentile : {THRESHOLD_PERCENTILE}%")
     print(f"=============================================")
 
     df = load_dataset()
@@ -271,7 +337,7 @@ if __name__ == "__main__":
         model_filename = f"{ALGO.capitalize()}_BiLSTM_{TOTAL_CLIENTS}clients.joblib"
         plot_filename = f"{ALGO.capitalize()}_BiLSTM_{TOTAL_CLIENTS}clients"
 
-    # Initialize client, passing CLIENT_ID
+    # Initialize client
     if ALGO.lower() == "fedavg":
         client = FedAvgClient(model, X_train, y_train, X_test, y_test, CLIENT_ID)
     else:
@@ -294,44 +360,66 @@ if __name__ == "__main__":
     trainMAPE = np.mean(np.abs(trainPredict - trainActual) / trainActual, axis=1) * 100
     print("Mean of Train MAPE:", np.mean(trainMAPE))
 
-    # --- CALCULATE THRESHOLD (99th Percentile of Training MAPE) ---
-    threshold_mape = np.percentile(trainMAPE, 99)
-    print(f"Calculated 99th Percentile Threshold (MAPE): {threshold_mape}")
+    # Calculate Threshold (Using configured percentile)
+    threshold_mape = np.percentile(trainMAPE, THRESHOLD_PERCENTILE)
+    print(f"Calculated {THRESHOLD_PERCENTILE}th Percentile Threshold (MAPE): {threshold_mape}")
 
     # 3. Plot Histogram for Train MAPE with Threshold
-    plt.figure(figsize=(10, 6))
-    plt.hist(trainMAPE, bins=30, alpha=0.7, color='teal', edgecolor='black')
-    plt.axvline(threshold_mape, color='r', linestyle='dashed', linewidth=2, label=f'Threshold (99th): {threshold_mape:.2f}%')
-    plt.xlabel('Mean Absolute Percentage Error (MAPE)')
-    plt.ylabel('Frequency')
-    plt.title(f'Train MAPE Histogram (Client {CLIENT_ID})')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(f'{plot_filename}_train_mape_histogram.png')
-    plt.close()
+    def plot_train_mape():
+        plt.figure(figsize=(10, 6))
+        plt.hist(trainMAPE, bins=30, alpha=0.7, color='teal', edgecolor='black')
+        plt.axvline(threshold_mape, color='r', linestyle='dashed', linewidth=2, 
+                   label=f'Threshold ({THRESHOLD_PERCENTILE}th): {threshold_mape:.2f}%')
+        plt.xlabel('Mean Absolute Percentage Error (MAPE)')
+        plt.ylabel('Frequency')
+        plt.title(f'Train MAPE Histogram (Client {CLIENT_ID})')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+
+    safe_plot(plot_train_mape, f'{plot_filename}_train_mape_histogram.png')
 
     # 4. Calculate MAPE for Testing
     testActual = X_test
     testMAPE = np.mean(np.abs(testPredict - testActual) / testActual, axis=1) * 100
     print("Mean of Test MAPE:", np.mean(testMAPE))
 
-    # 5. Plot Histogram for Test MAPE (Using the Training Threshold)
-    plt.figure(figsize=(10, 6))
-    plt.hist(testMAPE, bins=30, alpha=0.7, color='orange', edgecolor='black')
-    plt.axvline(threshold_mape, color='r', linestyle='dashed', linewidth=2, label=f'Train Threshold: {threshold_mape:.2f}%')
-    plt.xlabel('Mean Absolute Percentage Error (MAPE)')
-    plt.ylabel('Frequency')
-    plt.title(f'Test MAPE Histogram (Client {CLIENT_ID})')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.savefig(f'{plot_filename}_test_mape_histogram.png')
-    plt.close()
+    # 5. Plot Histogram for Test MAPE
+    def plot_test_mape():
+        plt.figure(figsize=(10, 6))
+        plt.hist(testMAPE, bins=30, alpha=0.7, color='orange', edgecolor='black')
+        plt.axvline(threshold_mape, color='r', linestyle='dashed', linewidth=2, 
+                   label=f'Train Threshold: {threshold_mape:.2f}%')
+        plt.xlabel('Mean Absolute Percentage Error (MAPE)')
+        plt.ylabel('Frequency')
+        plt.title(f'Test MAPE Histogram (Client {CLIENT_ID})')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+
+    safe_plot(plot_test_mape, f'{plot_filename}_test_mape_histogram.png')
 
     ####################################################################################################
 
     print("\n" + "="*60)
     print("Training completed! Container will stay alive indefinitely.")
     print("="*60 + "\n")
+
+    # Save threshold to a JSON file for easy retrieval
+    threshold_data = {
+        "client_id": CLIENT_ID,
+        "threshold_percentile": THRESHOLD_PERCENTILE,
+        "threshold_mape": float(threshold_mape),
+        "train_mape_mean": float(np.mean(trainMAPE)),
+        "train_mape_std": float(np.std(trainMAPE)),
+        "test_mape_mean": float(np.mean(testMAPE)),
+        "test_mape_std": float(np.std(testMAPE)),
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    with open('client_threshold.json', 'w') as f:
+        json.dump(threshold_data, f, indent=2)
+    
+    print(f"✓ Threshold data saved to client_threshold.json")
+    print(f"  Client {CLIENT_ID} Threshold ({THRESHOLD_PERCENTILE}th percentile): {threshold_mape:.4f}")
 
     try:
         while True:

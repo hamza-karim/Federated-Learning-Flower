@@ -116,18 +116,22 @@ with col1:
     </div>
     """, unsafe_allow_html=True)
 
-with open(LOGO_PATH, "rb") as f:
-    encoded_logo = base64.b64encode(f.read()).decode()
+try:
+    with open(LOGO_PATH, "rb") as f:
+        encoded_logo = base64.b64encode(f.read()).decode()
+except:
+    encoded_logo = ""
 
 with col2:
-    st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #006400 0%, #00a86b 100%);
-                padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                text-align: center;">
-        <img src="data:image/png;base64,{encoded_logo}" 
-             alt="C2SR Logo" style="width: 100%; object-fit: contain; max-height: 110px;">
-    </div>
-    """, unsafe_allow_html=True)
+    if encoded_logo:
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #006400 0%, #00a86b 100%);
+                    padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    text-align: center;">
+            <img src="data:image/png;base64,{encoded_logo}" 
+                 alt="C2SR Logo" style="width: 100%; object-fit: contain; max-height: 110px;">
+        </div>
+        """, unsafe_allow_html=True)
 
 AVAILABLE_DEVICES = {
     "10.226.44.86": {
@@ -238,7 +242,7 @@ st.markdown("---")
 
 st.markdown('<div class="section-header">FL Configuration</div>', unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 with col1:
     server_device = st.selectbox(
         "Server Device",
@@ -253,6 +257,8 @@ with col2:
 with col3:
     total_clients = st.number_input("Total Clients", min_value=1, value=4)
     epochs = st.number_input("Epochs/Client", min_value=1, max_value=50, value=5)
+with col4:
+    threshold_percentile = st.number_input("Anomaly Threshold (%)", min_value=90.0, max_value=100.0, value=99.0, step=0.1)
 
 image = st.text_input("Docker Image", "hamzakarim07/flwr_client_hfl:latest")
 
@@ -446,9 +452,9 @@ docker run -d --name flwr-client{cid} \\
   -e ALGO={algo} \\
   -e SERVER_IP={server_ip} \\
   -e SERVER_PORT={server_port} \\
+  -e THRESHOLD_PERCENTILE={threshold_percentile} \\
   {image}
 """
-                    
                     try:
                         result = subprocess.run(
                             ["ssh", "-o", "StrictHostKeyChecking=no",
@@ -502,7 +508,7 @@ st.markdown('<div class="section-header">Training Results</div>', unsafe_allow_h
 server_container = "flwr-server_hfl"
 log_file_path = "/app/src/log.txt"  
 
-tab1, tab2 = st.tabs(["📊 Server Training Metrics", "🖼️ Client Training Images"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Server Training Metrics", "🖼️ Client Training Images", "📋 Client Thresholds", "🧪 Inference Testing"])
 
 with tab1:
     col1, col2 = st.columns([2, 3])
@@ -533,76 +539,101 @@ with tab1:
 
                         loss_pattern = r"losses_distributed\s*(\[.*\])"
                         mape_pattern = r"metrics_distributed\s*\{.*\}"
+                        train_loss_pattern = r"metrics_distributed_fit\s*\{.*\}"
 
-                        losses, mape = None, None
+                        losses, mape, train_loss = None, None, None
+                        
                         for line in lines:
                             if "losses_distributed" in line:
                                 match = re.search(loss_pattern, line)
                                 if match:
                                     losses = eval(match.group(1))
-                            elif "metrics_distributed" in line:
+                            elif "metrics_distributed" in line and "metrics_distributed_fit" not in line:
                                 match = re.search(mape_pattern, line)
                                 if match:
                                     metrics_str = match.group(0).split("metrics_distributed")[-1].strip()
-                                    mape = eval(metrics_str)["mape"]
+                                    mape = eval(metrics_str).get("mape", [])
+                            elif "metrics_distributed_fit" in line:
+                                match = re.search(train_loss_pattern, line)
+                                if match:
+                                    metrics_str = match.group(0).split("metrics_distributed_fit")[-1].strip()
+                                    train_loss = eval(metrics_str).get("train_loss", [])
 
-                        if not losses or not mape:
+                        if not losses:
                             st.error("Could not find training results in log file.")
                         else:
                             st.session_state.losses = losses
                             st.session_state.mape = mape
+                            st.session_state.train_loss = train_loss 
                             st.success("✅ Successfully parsed training metrics!")
                             
-                            if 'losses' in st.session_state and st.session_state.losses \
-                            and 'mape' in st.session_state and st.session_state.mape:
-
+                            if 'losses' in st.session_state and st.session_state.losses:
                                 losses = st.session_state.losses
                                 rounds_loss, loss_values = zip(*losses)
 
-                                if isinstance(st.session_state.mape, dict) and 'mape' in st.session_state.mape:
-                                    mape_list = st.session_state.mape['mape']
+                                if st.session_state.mape:
+                                    if isinstance(st.session_state.mape, dict):
+                                        mape_list = st.session_state.mape.get('mape', [])
+                                    else:
+                                        mape_list = st.session_state.mape
+                                    if mape_list:
+                                        rounds_mape, mape_values = zip(*mape_list)
+                                    else:
+                                        rounds_mape, mape_values = [], []
                                 else:
-                                    mape_list = st.session_state.mape
+                                    rounds_mape, mape_values = [], []
 
-                                rounds_mape, mape_values = zip(*mape_list)
+                                if st.session_state.train_loss:
+                                    rounds_train, train_values = zip(*st.session_state.train_loss)
+                                else:
+                                    rounds_train, train_values = [], []
 
-                                st.markdown("**Raw Training Metrics**")
-                                st.text(f"losses_distributed {losses}")
-                                st.text(f"metrics_distributed {st.session_state.mape}")
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                ax.plot(rounds_loss, loss_values, marker='o', color='#2a5298', label='Test Loss', linewidth=2)
+                                
+                                if rounds_train:
+                                    ax.plot(rounds_train, train_values, marker='^', color='#27ae60', label='Train Loss', linewidth=2, linestyle='--')
 
-                                fig, ax = plt.subplots(figsize=(8,5))
+                                if rounds_mape:
+                                    ax2 = ax.twinx()
+                                    ax2.plot(rounds_mape, mape_values, marker='s', color='#ff6b6b', label='Test MAPE', linewidth=1.5, alpha=0.7)
+                                    ax2.set_ylabel("MAPE (%)", color='#ff6b6b', fontsize=12)
+                                    ax2.tick_params(axis='y', labelcolor='#ff6b6b')
+                                    lines_1, labels_1 = ax.get_legend_handles_labels()
+                                    lines_2, labels_2 = ax2.get_legend_handles_labels()
+                                    ax.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper right')
+                                else:
+                                    ax.legend(loc='upper right')
 
-                                ax.plot(rounds_loss, loss_values, marker='o', color='#2a5298', label='Loss')
-                                ax.plot(rounds_mape, mape_values, marker='s', color='#ff6b6b', label='MAPE')
-                                ax.set_xlabel("FL Round")
-                                ax.set_ylabel("Value")
-                                ax.set_title("FL Training Loss and MAPE per Round")
+                                ax.set_xlabel("FL Round", fontsize=12)
+                                ax.set_ylabel("Loss (MAE)", fontsize=12)
+                                ax.set_title("Training vs. Validation Loss (Overfitting Check)", fontsize=14, fontweight='bold')
                                 ax.grid(True, linestyle='--', alpha=0.5)
-                                ax.legend()
 
                                 for x, y in zip(rounds_loss, loss_values):
-                                    ax.annotate(f"{y:.2f}", xy=(x, y), xytext=(0, 10), textcoords='offset points', ha='center', fontsize=9, color='#2a5298')
+                                    ax.annotate(f"{y:.3f}", xy=(x, y), xytext=(0, 10), textcoords='offset points', ha='center', fontsize=8, color='#2a5298')
 
-                                for x, y in zip(rounds_mape, mape_values):
-                                    ax.annotate(f"{y:.2f}", xy=(x, y), xytext=(0, -10), textcoords='offset points', ha='center', fontsize=9, color='#ff6b6b')
+                                if rounds_train:
+                                    for x, y in zip(rounds_train, train_values):
+                                        ax.annotate(f"{y:.3f}", xy=(x, y), xytext=(0, -15), textcoords='offset points', ha='center', fontsize=8, color='#27ae60')
 
                                 st.pyplot(fig)
                                 
                                 buf = io.BytesIO()
                                 fig.savefig(buf, format="png")
                                 buf.seek(0)
+                                st.download_button("💾 Download Plot as PNG", data=buf, file_name="fl_overfitting_plot.png", mime="image/png")
 
-                                st.download_button(
-                                    label="💾 Download Plot as PNG",
-                                    data=buf,
-                                    file_name="fl_loss_mape_plot.png",
-                                    mime="image/png"
-                                )
-
-                                final_mape = mape_values[-1]
-                                st.metric(label="Final MAPE", value=f"{final_mape:.2f}%")
-                                                                        
-                            
+                                col_a, col_b, col_c = st.columns(3)
+                                with col_a:
+                                    st.metric("Final Test Loss", f"{loss_values[-1]:.4f}")
+                                with col_b:
+                                    if train_values:
+                                        st.metric("Final Train Loss", f"{train_values[-1]:.4f}")
+                                with col_c:
+                                    if mape_values:
+                                        st.metric("Final Test MAPE", f"{mape_values[-1]:.2f}%")
+                                                    
                             ssh_cmd_json = f"docker cp flwr-server_hfl:/app/src/fl_metrics.json /tmp/fl_metrics.json"
                             subprocess.run([
                                 "ssh", "-o", "StrictHostKeyChecking=no",
@@ -620,37 +651,47 @@ with tab1:
 
                             summary = metrics_json.get("summary", {})
                             per_round = metrics_json.get("per_round_metrics", {})
-
+                            
                             st.subheader("📊 Federated Learning Summary")
 
-                            col1, col2, col3 = st.columns(3)
+                            total_rounds = summary.get("total_communication_rounds", 0)
+                            if per_round and total_rounds > 0:
+                                avg_duration = sum(per_round[k].get("duration_seconds", 0) for k in per_round.keys()) / total_rounds
+                                avg_aggregation = sum(per_round[k].get("aggregation_time", 0) for k in per_round.keys()) / total_rounds
+                            else:
+                                avg_duration = 0
+                                avg_aggregation = 0
+
+                            col1, col2, col3, col4 = st.columns(4)
                             with col1:
-                                st.metric("Total Rounds", summary.get("total_communication_rounds", 0))
+                                st.metric("Total Rounds", total_rounds)
                             with col2:
                                 total_time = summary.get("total_training_time", 0)
-                                st.metric("Total Time", f"{total_time:.2f}s ({total_time/60:.2f}m)")
+                                st.metric("Total Time", f"{total_time:.2f}s", delta=f"{total_time/60:.2f} min")
+                            with col3:
+                                st.metric("Avg Time/Round", f"{avg_duration:.2f}s")
+                            with col4:
+                                st.metric("Avg Aggregation", f"{avg_aggregation*1000:.2f}ms")
+
+                            col1, col2, col3, col4 = st.columns(4)
+                            with col1:
+                                total_bytes_sent = summary.get('total_bytes_sent', 0)
+                                st.metric("Total Bytes Sent", f"{total_bytes_sent/1024/1024:.2f} MB")
+                            with col2:
+                                total_bytes_received = summary.get('total_bytes_received', 0)
+                                st.metric("Total Bytes Received", f"{total_bytes_received/1024/1024:.2f} MB")
                             with col3:
                                 total_comm = summary.get("total_communication_overhead", 0)
                                 st.metric("Total Communication", f"{total_comm/1024/1024:.2f} MB")
-
-                            summary_df = pd.DataFrame([{
-                                "Total Rounds": summary.get("total_communication_rounds", 0),
-                                "Total Bytes Sent": f"{summary.get('total_bytes_sent', 0):,} bytes ({summary.get('total_bytes_sent', 0)/1024/1024:.2f} MB)",
-                                "Total Bytes Received": f"{summary.get('total_bytes_received', 0):,} bytes ({summary.get('total_bytes_received', 0)/1024/1024:.2f} MB)",
-                                "Total Communication Overhead": f"{summary.get('total_communication_overhead', 0):,} bytes ({summary.get('total_communication_overhead', 0)/1024/1024:.2f} MB)",
-                                "Total Training Time": f"{summary.get('total_training_time', 0):.2f} seconds ({summary.get('total_training_time', 0)/60:.2f} minutes)",
-                            }])
-
-                            st.table(summary_df.T)
-
-                            # ============================================================
-                            # SECTION 2: Per-Round Detailed Table
-                            # ============================================================
+                            with col4:
+                                if total_rounds > 0:
+                                    avg_comm_per_round = total_comm / total_rounds
+                                    st.metric("Avg Comm/Round", f"{avg_comm_per_round/1024/1024:.2f} MB")
+                            
                             st.subheader("📋 Per-Round Metrics")
 
                             if per_round:
                                 rounds_data = []
-                                # FIX: Sort keys numerically instead of alphabetically to prevent zig-zag
                                 sorted_keys = sorted(per_round.keys(), key=lambda x: int(x.split("_")[1]))
                                 
                                 for r_key in sorted_keys:
@@ -670,7 +711,6 @@ with tab1:
                                 rounds_df = pd.DataFrame(rounds_data)
                                 st.dataframe(rounds_df, use_container_width=True)
                                 
-                                # Download CSV
                                 csv = rounds_df.to_csv(index=False)
                                 st.download_button(
                                     label="📥 Download Per-Round Metrics as CSV",
@@ -679,16 +719,12 @@ with tab1:
                                     mime="text/csv"
                                 )
 
-                                # ============================================================
-                                # SECTION 3: Comprehensive Visualizations
-                                # ============================================================
                                 st.subheader("📈 Visualization Dashboard")
 
                                 if per_round:
                                     rounds, durations, bytes_sent, bytes_received, total_bytes = [], [], [], [], []
                                     aggregation_times, num_clients = [], []
                                     
-                                    # FIX: Use the numerically sorted keys for plotting
                                     sorted_keys = sorted(per_round.keys(), key=lambda x: int(x.split("_")[1]))
                                     
                                     for r_key in sorted_keys:
@@ -703,11 +739,9 @@ with tab1:
                                         aggregation_times.append(round_data.get("aggregation_time", 0))
                                         num_clients.append(round_data.get("num_clients_communicated", 0))
 
-                                    # Create a 2x2 subplot layout
                                     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
                                     fig.suptitle('Federated Learning Performance Metrics', fontsize=16, fontweight='bold')
 
-                                    # ========== Plot 1: Round Duration ==========
                                     ax1.bar(rounds, durations, color='#3498db', alpha=0.8, edgecolor='black')
                                     ax1.set_xlabel("Round Number", fontsize=12, fontweight='bold')
                                     ax1.set_ylabel("Duration (seconds)", fontsize=12, fontweight='bold')
@@ -715,11 +749,9 @@ with tab1:
                                     ax1.grid(True, linestyle='--', alpha=0.3, axis='y')
                                     ax1.set_xticks(rounds)
                                     
-                                    # Add value labels on bars
                                     for i, (r, d) in enumerate(zip(rounds, durations)):
                                         ax1.text(r, d, f'{d:.1f}s', ha='center', va='bottom', fontsize=9, fontweight='bold')
 
-                                    # ========== Plot 2: Communication Overhead (Stacked Bar) ==========
                                     width = 0.35
                                     ax2.bar(rounds, [b/1024/1024 for b in bytes_sent], width, 
                                             label='Bytes Sent', color='#2ecc71', alpha=0.8, edgecolor='black')
@@ -734,12 +766,10 @@ with tab1:
                                     ax2.grid(True, linestyle='--', alpha=0.3, axis='y')
                                     ax2.set_xticks(rounds)
                                     
-                                    # Add total on top
                                     for i, (r, t) in enumerate(zip(rounds, total_bytes)):
                                         ax2.text(r, t/1024/1024, f'{t/1024/1024:.2f}MB', 
                                                 ha='center', va='bottom', fontsize=9, fontweight='bold')
 
-                                    # ========== Plot 3: Aggregation Time ==========
                                     ax3.plot(rounds, [t*1000 for t in aggregation_times], 
                                             marker='o', linewidth=2, markersize=8, color='#9b59b6', 
                                             markerfacecolor='#e056fd', markeredgecolor='black', markeredgewidth=1.5)
@@ -749,14 +779,12 @@ with tab1:
                                     ax3.grid(True, linestyle='--', alpha=0.3)
                                     ax3.set_xticks(rounds)
     
-                                    # Add value labels
                                     for r, t in zip(rounds, aggregation_times):
                                         ax3.annotate(f'{t*1000:.2f}ms', xy=(r, t*1000), 
                                                     xytext=(0, 10), textcoords='offset points',
                                                     ha='center', fontsize=9, fontweight='bold',
                                                     bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.3))
 
-                                    # ========== Plot 4: Communication Breakdown Pie Chart (Average) ==========
                                     avg_sent = sum(bytes_sent) / len(bytes_sent)
                                     avg_received = sum(bytes_received) / len(bytes_received)
                                     
@@ -773,7 +801,6 @@ with tab1:
                                     plt.tight_layout()
                                     st.pyplot(fig)
 
-                                    # Download button for the comprehensive plot
                                     buf_all = io.BytesIO()
                                     fig.savefig(buf_all, format="png", dpi=300, bbox_inches='tight')
                                     buf_all.seek(0)
@@ -785,26 +812,20 @@ with tab1:
                                         mime="image/png"
                                     )
 
-                                    # ========== Additional Individual Plots ==========
                                     st.subheader("📊 Additional Insights")
                                     
-                                    # Efficiency Metrics
                                     col1, col2 = st.columns(2)
                                     
                                     with col1:
-                                        # Communication Efficiency (bytes per second)
                                         fig_eff, ax_eff = plt.subplots(figsize=(8, 5))
                                         comm_efficiency = [tb/d if d > 0 else 0 for tb, d in zip(total_bytes, durations)]
                                         
-                                        # Calculate average throughput
                                         avg_throughput = sum(comm_efficiency) / len(comm_efficiency) if comm_efficiency else 0
                                         
-                                        # Plot average as horizontal line
                                         ax_eff.axhline(y=avg_throughput/1024, color='#e74c3c', linestyle='--', 
                                                     linewidth=3, label=f'Average: {avg_throughput/1024:.2f} KB/s', 
                                                     alpha=0.8)
                                         
-                                        # Plot individual points
                                         ax_eff.plot(rounds, [ce/1024 for ce in comm_efficiency], 
                                                     marker='o', linewidth=2, markersize=8, color='#3498db',
                                                     markerfacecolor='#5dade2', markeredgecolor='black', 
@@ -817,16 +838,13 @@ with tab1:
                                         ax_eff.set_xticks(rounds)
                                         ax_eff.legend(loc='best')
                                         
-                                        # Format y-axis to show 2 decimal places
                                         from matplotlib.ticker import FormatStrFormatter
                                         ax_eff.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
                                         
-                                        # Add value labels on points with proper formatting
                                         for r, ce in zip(rounds, comm_efficiency):
                                             ax_eff.text(r, ce/1024, f'{ce/1024:.2f}', 
                                                         ha='center', va='bottom', fontsize=8, rotation=0)
                                         
-                                        # Add average value annotation
                                         ax_eff.text(rounds[-1], avg_throughput/1024, 
                                                     f' Avg: {avg_throughput/1024:.2f} KB/s',
                                                     ha='left', va='center', fontsize=10, fontweight='bold',
@@ -834,7 +852,6 @@ with tab1:
                                         
                                         st.pyplot(fig_eff)
                                         
-                                        # Display average as metric
                                         st.metric(
                                             label="Average Throughput", 
                                             value=f"{avg_throughput/1024:.2f} KB/s",
@@ -852,13 +869,11 @@ with tab2:
     if not st.session_state.clients:
         st.warning("⚠️ No client devices configured. Add devices first.")
     else:
-        # ---------------- Client Selection ----------------
         col1, col2 = st.columns([2, 1])
         
         with col1:
             client_options = []
             
-            # FIX: Properly indented loop to collect ALL clients from ALL devices
             for device in st.session_state.clients:
                 if 'client_ids' in device:
                     client_list = device['client_ids']
@@ -882,12 +897,11 @@ with tab2:
         
         with col2:
             if client_options:
-                st.write("")  # Spacer
+                st.write("") 
                 st.caption(f"Device: **{selected_client['device']['display_name']}**")
                 st.caption(f"IP: **{selected_client['device']['ip']}**")
         
         if client_options:
-            # ---------------- List PNG Images in Container ----------------
             device = selected_client['device']
             client_id = selected_client['client_id']
             container_name = f"flwr-client{client_id}"
@@ -917,15 +931,12 @@ with tab2:
                     help="Enter the PNG file name manually"
                 )
             
-            # ---------------- Ensure session_state for fetched images ----------------
             if 'fetched_images' not in st.session_state:
                 st.session_state.fetched_images = []
 
-            # ---------------- Display Selected Image ----------------
             if st.button("🖼️ Show Selected Image", use_container_width=True):
                 with st.spinner(f"Fetching image from {device['display_name']} - Client {client_id}..."):
                     try:
-                        # Read image bytes directly from container
                         cat_cmd = f'docker exec {container_name} cat /app/src/{image_filename}'
                         result = subprocess.run(
                             ["ssh", "-o", "StrictHostKeyChecking=no",
@@ -935,7 +946,6 @@ with tab2:
                         image_bytes = io.BytesIO(result.stdout)
                         img = Image.open(image_bytes)
 
-                        # Store in session_state
                         st.session_state.fetched_images.append({
                             'img': img.copy(),
                             'from': f"{device['display_name']} - Client {client_id}",
@@ -948,7 +958,6 @@ with tab2:
                         with st.expander("Error details"):
                             st.code(e.stderr if e.stderr else str(e))
             
-            # ---------------- Display last 2 fetched images side by side ----------------
             if st.session_state.fetched_images:
                 st.markdown("---")
                 st.markdown("### Fetched Training Images")
@@ -961,7 +970,6 @@ with tab2:
                         st.markdown(f"**From:** {img_info['from']}")
                         st.image(img_info['img'], width=800)
 
-                        # Convert image to bytes for download
                         buf = io.BytesIO()
                         img_info['img'].save(buf, format="PNG")
                         buf.seek(0)
@@ -973,6 +981,239 @@ with tab2:
                             mime="image/png",
                             key=f"download_{img_info['filename']}_{idx}"
                         )
+
+with tab3:
+    st.markdown("### 📋 Client Thresholds")
+    
+    if st.button("🔄 Fetch All Client Thresholds", type="primary", use_container_width=True):
+        if not st.session_state.clients:
+            st.warning("⚠️ No devices configured.")
+        else:
+            threshold_data_list = []
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            total_containers = 0
+            for device in st.session_state.clients:
+                if 'client_ids' in device:
+                    total_containers += len(device['client_ids'])
+                else:
+                    total_containers += (device['end'] - device['start'] + 1)
+            
+            processed_count = 0
+            
+            for device in st.session_state.clients:
+                if 'client_ids' in device:
+                    client_list = device['client_ids']
+                else:
+                    client_list = range(device['start'], device['end'] + 1)
+                
+                for cid in client_list:
+                    status_text.text(f"Fetching threshold from {device['display_name']} - Client {cid}...")
+                    container_name = f"flwr-client{cid}"
+                    
+                    try:
+                        cat_cmd = f'docker exec {container_name} cat /app/src/client_threshold.json'
+                        result = subprocess.run(
+                            ["ssh", "-o", "StrictHostKeyChecking=no",
+                             f"{device['hostname']}@{device['ip']}", cat_cmd],
+                            capture_output=True, text=True
+                        )
+                        
+                        if result.returncode == 0:
+                            data = json.loads(result.stdout)
+                            data['device_name'] = device['display_name']
+                            data['ip'] = device['ip']
+                            threshold_data_list.append(data)
+                        else:
+                            threshold_data_list.append({
+                                'client_id': cid,
+                                'device_name': device['display_name'],
+                                'threshold_mape': None,
+                                'note': 'File not found'
+                            })
+                            
+                    except Exception as e:
+                        threshold_data_list.append({
+                            'client_id': cid,
+                            'device_name': device['display_name'],
+                            'threshold_mape': None,
+                            'note': f'Error: {str(e)}'
+                        })
+                    
+                    processed_count += 1
+                    progress_bar.progress(processed_count / total_containers)
+            
+            status_text.empty()
+            progress_bar.empty()
+            
+            if threshold_data_list:
+                df_thresholds = pd.DataFrame(threshold_data_list)
+                cols = ['client_id', 'device_name', 'threshold_mape', 'threshold_percentile', 'train_mape_mean', 'test_mape_mean']
+                cols = [c for c in cols if c in df_thresholds.columns]
+                if 'note' in df_thresholds.columns:
+                    cols.append('note')
+                    
+                st.dataframe(df_thresholds[cols], use_container_width=True)
+                
+                csv = df_thresholds.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Thresholds CSV",
+                    data=csv,
+                    file_name="client_thresholds.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.info("No threshold data collected.")
+
+# ==============================================================================
+# TAB 4: INFERENCE TESTING (Fixed Path)
+# ==============================================================================
+with tab4:
+    st.markdown("### 🧪 Server-Side Inference Testing")
+    st.info("Run anomaly detection on the server using the pre-existing script and live client thresholds.")
+
+    # 1. Test Configuration
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        inf_algo = st.selectbox("Algorithm", ["FedAvg", "FedProx"], index=0)
+    with c2:
+        inf_dataset = st.selectbox("Test Dataset", ["V3S1.csv", "V3S2.csv", "V3S3.csv"])
+    with c3:
+        # Default to the number of configured clients
+        default_clients = sum([len(d.get('client_ids', [])) if 'client_ids' in d else (d['end'] - d['start'] + 1) for d in st.session_state.clients])
+        inf_clients = st.number_input("Number of Clients", min_value=1, value=max(1, default_clients))
+
+    st.markdown("#### Threshold Configuration")
+    
+    # 2. Auto-Fetch Logic
+    col_auto, col_manual = st.columns([1, 3])
+    with col_auto:
+        if st.button("🪄 Auto-Fetch Thresholds", help="Pull latest thresholds directly from client containers"):
+            if not st.session_state.clients:
+                st.error("No clients configured!")
+            else:
+                fetched_thresholds = {}
+                progress_text = st.empty()
+                
+                for device in st.session_state.clients:
+                    if 'client_ids' in device:
+                        c_list = device['client_ids']
+                    else:
+                        c_list = range(device['start'], device['end'] + 1)
+                    
+                    for cid in c_list:
+                        progress_text.text(f"Fetching from Client {cid}...")
+                        try:
+                            # Read JSON directly from client container
+                            cmd = f"ssh -o StrictHostKeyChecking=no {device['hostname']}@{device['ip']} \"docker exec flwr-client{cid} cat /app/src/client_threshold.json\""
+                            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                            
+                            if result.returncode == 0:
+                                data = json.loads(result.stdout)
+                                fetched_thresholds[cid] = data['threshold_mape']
+                            else:
+                                st.warning(f"Client {cid}: No threshold file found.")
+                        except Exception as e:
+                            st.warning(f"Client {cid}: Failed to fetch ({str(e)})")
+                
+                progress_text.empty()
+                
+                if fetched_thresholds:
+                    ordered_values = []
+                    missing = []
+                    for i in range(1, inf_clients + 1):
+                        if i in fetched_thresholds:
+                            ordered_values.append(str(fetched_thresholds[i]))
+                        else:
+                            ordered_values.append("0.05") 
+                            missing.append(i)
+                    
+                    st.session_state.auto_threshold_str = ",".join(ordered_values)
+                    
+                    if missing:
+                        st.warning(f"Missing thresholds for Clients {missing}. Using default 0.05.")
+                    else:
+                        st.success(f"Successfully fetched {len(fetched_thresholds)} thresholds!")
+    
+    # 3. Threshold Display/Edit
+    default_thresh = st.session_state.get("auto_threshold_str", "0.05," * (inf_clients-1) + "0.05")
+    threshold_input = st.text_area("Thresholds (Comma-Separated)", value=default_thresh, height=70, 
+                                  help="Client 1, Client 2, Client 3...")
+
+    # 4. Run Inference
+    if st.button("▶️ Run Inference Test", type="primary", use_container_width=True):
+        if not server_ip:
+            st.error("⚠️ No server device selected in 'FL Configuration'!")
+        else:
+            server_host = AVAILABLE_DEVICES[server_ip]["hostname"]
+            server_disp = AVAILABLE_DEVICES[server_ip]["display_name"]
+            
+            with st.status(f"Running inference on {server_disp}...") as status:
+                try:
+                    # FIX: Use absolute path /app/src/inference_test.py
+                    # Also added 'cd /app/src &&' to ensure relative paths inside the script work
+                    cmd_str = f"cd /app/src && python3 inference_test.py --algo {inf_algo} --dataset {inf_dataset} --clients {inf_clients} --thresholds \"{threshold_input.strip()}\""
+                    
+                    ssh_run_cmd = f"docker exec flwr-server_hfl sh -c '{cmd_str}'"
+                    
+                    status.write(f"Executing: {cmd_str}")
+                    
+                    result = subprocess.run(
+                        ["ssh", "-o", "StrictHostKeyChecking=no", f"{server_host}@{server_ip}", ssh_run_cmd],
+                        capture_output=True, text=True
+                    )
+                    
+                    output_log = result.stdout
+                    csv_file = f"inference_summary_{inf_algo}_{inf_clients}clients.csv"
+                    
+                    jain_index, avg_acc, avg_f1, avg_prec, avg_rec = "N/A", "N/A", "N/A", "N/A", "N/A"
+                    if "JAIN_INDEX:" in output_log:
+                        jain_index = output_log.split("JAIN_INDEX:")[1].split()[0]
+                    if "AVG_ACC:" in output_log:
+                        avg_acc = output_log.split("AVG_ACC:")[1].split()[0]
+                    if "AVG_F1:" in output_log:
+                        avg_f1 = output_log.split("AVG_F1:")[1].split()[0]
+                    if "AVG_PREC:" in output_log:
+                        avg_prec = output_log.split("AVG_PREC:")[1].split()[0] 
+                    if "AVG_REC:" in output_log:
+                        avg_rec = output_log.split("AVG_REC:")[1].split()[0]    
+                           
+                    if result.returncode == 0:
+                        status.write("Fetching results CSV...")
+                        subprocess.run([
+                            "ssh", "-o", "StrictHostKeyChecking=no", f"{server_host}@{server_ip}", 
+                            f"docker cp flwr-server_hfl:/app/src/{csv_file} /tmp/{csv_file}"
+                        ])
+                        subprocess.run([
+                            "scp", "-o", "StrictHostKeyChecking=no", 
+                            f"{server_host}@{server_ip}:/tmp/{csv_file}", csv_file
+                        ])
+                        
+                        st.success("Inference Complete!")
+                        
+                        m1, m2, m3, m4, m5 = st.columns(5)
+                        m1.metric("Jain's Fairness Index", jain_index)
+                        m2.metric("Avg Accuracy", avg_acc)
+                        m3.metric("Avg F1-Score", avg_f1)
+                        m4.metric("Avg Precision", avg_prec)
+                        m5.metric("Avg Recall", avg_rec)
+                        
+                        
+                        if os.path.exists(csv_file):
+                            df_res = pd.read_csv(csv_file)
+                            st.dataframe(df_res, use_container_width=True)
+                            
+                            csv_data = df_res.to_csv(index=False)
+                            st.download_button("📥 Download Inference Results", data=csv_data, file_name=csv_file, mime="text/csv")
+                    else:
+                        st.error("Inference Script Failed")
+                        st.error(output_log)
+                        if result.stderr:
+                            st.code(result.stderr)
+
+                except Exception as e:
+                    st.error(f"Execution Error: {str(e)}")
 
 st.markdown("---")
 

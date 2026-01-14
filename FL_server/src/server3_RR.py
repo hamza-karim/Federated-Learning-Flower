@@ -194,6 +194,14 @@ def parse_arguments():
 
     return args
 
+# --- NEW: Aggregation function for training metrics (loss) ---
+def weighted_average_fit(metrics: List[Tuple[int, fl.common.Metrics]]) -> fl.common.Metrics:
+    # Aggregates the 'train_loss' returned by clients during fit()
+    losses = [num_examples * m["train_loss"] for num_examples, m in metrics]
+    examples = [num_examples for num_examples, _ in metrics]
+    return {"train_loss": sum(losses) / sum(examples)}
+
+# --- EXISTING: Aggregation function for evaluation metrics (mape) ---
 def weighted_average(metrics: List[Tuple[int, fl.common.Metrics]]) -> fl.common.Metrics:
     mape = [num_examples * m["mape"] for num_examples, m in metrics]
     examples = [num_examples for num_examples, _ in metrics]
@@ -404,6 +412,8 @@ if __name__ == "__main__":
             min_fit_clients=args.min_fit_clients,
             min_evaluate_clients=args.min_evaluate_clients,
             min_available_clients=args.total_clients,
+            # Updated: Added fit metrics aggregation
+            fit_metrics_aggregation_fn=weighted_average_fit,
             evaluate_metrics_aggregation_fn=weighted_average,
         )
     else:
@@ -414,6 +424,8 @@ if __name__ == "__main__":
             min_evaluate_clients=args.min_evaluate_clients,
             min_available_clients=args.total_clients,
             proximal_mu=args.proximal_mu,
+            # Updated: Added fit metrics aggregation
+            fit_metrics_aggregation_fn=weighted_average_fit,
             evaluate_metrics_aggregation_fn=weighted_average,
         )
 

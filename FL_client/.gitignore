@@ -1,1 +1,18 @@
 .idea/
+
+# Ignore logs and metrics
+*.log
+log.txt
+fl_metrics.json
+
+# Ignore CSV output files
+*.csv
+
+# Ignore compiled python files
+__pycache__/
+*.pyc
+
+# Ignore trained weights (optional, prevents repo bloat)
+*.npz
+*.h5
+*.joblib
