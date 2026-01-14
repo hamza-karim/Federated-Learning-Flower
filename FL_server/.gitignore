@@ -1,1 +1,14 @@
 .idea/
+__pycache__/
+*.pyc
+
+# Logs and Metrics
+src/log.txt
+src/fl_metrics.json
+
+# Inference Results
+src/inference_summary_*.csv
+src/*.png
+
+# Model Weights (Heavy files - vital to ignore)
+src/*.npz
