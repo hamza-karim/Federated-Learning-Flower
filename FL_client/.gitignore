@@ -1,18 +1,19 @@
 .idea/
-
-# Ignore logs and metrics
-*.log
-log.txt
-fl_metrics.json
-
-# Ignore CSV output files
-*.csv
-
-# Ignore compiled python files
 __pycache__/
 *.pyc
 
-# Ignore trained weights (optional, prevents repo bloat)
-*.npz
-*.h5
-*.joblib
+# Logs and Metrics
+src/log.txt
+src/fl_metrics.json
+src/client_threshold.json
+
+# Generated Plots and Images
+src/*.png
+
+# Output Data
+src/*.csv
+
+# Trained Models (Heavy files)
+src/*.npz
+src/*.h5
+src/*.joblib
