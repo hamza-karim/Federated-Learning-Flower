@@ -1,0 +1,50 @@
+FROM tensorflow/tensorflow:2.15.0-gpu
+
+ENV PYTHONUNBUFFERED=1
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    git \
+    iproute2 \
+    iputils-ping \
+    net-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================
+# TensorFlow GPU Configuration
+# ============================================
+ENV TF_FORCE_GPU_ALLOW_GROWTH=true
+ENV TF_GPU_ALLOCATOR=default
+ENV TF_NUM_INTRAOP_THREADS=1
+ENV TF_NUM_INTEROP_THREADS=1
+ENV OMP_NUM_THREADS=1
+ENV OPENBLAS_NUM_THREADS=1
+ENV TF_CPP_MIN_LOG_LEVEL=2
+# Fix for Protobuf crash often seen on servers
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+
+# ============================================
+# Setup Application
+# ============================================
+WORKDIR /app
+
+# Copy source code
+COPY FL_client/src/ /app/src
+
+WORKDIR /app/src
+
+# Upgrade pip
+RUN pip install --no-cache-dir --upgrade pip
+
+# Install reqs
+RUN pip install --no-cache-dir -r requirements-x86_64.txt
+
+# Verify TensorFlow GPU installation
+RUN python3 -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__); print('GPU Available:', tf.config.list_physical_devices('GPU'))"
+
+# ============================================
+# Runtime
+# ============================================
+CMD ["python3", "client.py"]

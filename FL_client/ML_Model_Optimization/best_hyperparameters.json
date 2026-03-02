@@ -1,0 +1,29 @@
+{  
+    "seq_size": 20,
+    "lstm1_units": 64,
+    "lstm2_units": 128,
+    "dropout_rate": 0.12351610692181327,
+    "batch_size": 32,
+    "learning_rate": 0.0010010062354160513,
+    "epochs": 40
+} //trial 2
+
+{  
+    "seq_size": 20,
+    "lstm1_units": 256,
+    "lstm2_units": 64,
+    "dropout_rate": 0.1419,
+    "batch_size": 64,
+    "learning_rate": 0.000549,
+    "epochs": 40
+} //trial 39 this one 
+
+{  
+    "seq_size": 20,
+    "lstm1_units": 256,
+    "lstm2_units": 64,
+    "dropout_rate": 0.1168,
+    "batch_size": 64,
+    "learning_rate": 0.001073,
+    "epochs": 30
+} // trial 43 

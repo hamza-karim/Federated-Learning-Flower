@@ -15,7 +15,7 @@ ENV TF_CPP_MIN_LOG_LEVEL=2
 
 WORKDIR /app
 
-COPY FL_server/src/ /app/src
+COPY FL_client/src/ /app/src
 
 WORKDIR /app/src
 
@@ -25,5 +25,4 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 WORKDIR /app/src
 
-CMD ["tail", "-f", "/dev/null"]
-
+CMD ["python3", "client.py"]

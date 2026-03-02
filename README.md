@@ -58,10 +58,14 @@ The dataset was split in order that 80% of normal instances were considered for 
 1. Build the docker image:
    ```bash
    docker build --platform linux/arm64 -t hamzakarim07/flwr_client_hfl:latest -f FL_client/docker/Dockerfile .
+
+   docker build --platform linux/amd64 -t hamzakarim07/flwr_client_lambda:latest -f FL_client/docker/Dockerfile.x86_64 .
    ```
 2. Push the docker image to docker hub:
    ```bash
    docker push hamzakarim07/flwr_client_hfl:latest
+
+   docker push hamzakarim07/flwr_client_lambda:latest
    ```
 3. Pull the Docker image for the client on the Jetson Nano device from [Docker Hub](https://hub.docker.com/repositories/hamzakarim07):
    ```bash

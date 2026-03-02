@@ -1,6 +1,5 @@
-flwr
-matplotlib
-seaborn
-protobuf==3.20.3
-numpy==1.25.2
+flwr==1.4.0
+matplotlib==3.7.1
+seaborn==0.12.2
+numpy==1.23.5
 pandas==1.5.3

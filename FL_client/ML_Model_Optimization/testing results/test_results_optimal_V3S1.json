@@ -1,0 +1,33 @@
+{
+    "dataset": "V3S1",
+    "test_file": "V3S1.csv",
+    "timestamp": "2026-02-03T20:19:50.473513",
+    "optimal_percentile": 99.6,
+    "optimal_threshold": 0.010816202275454991,
+    "performance": {
+        "accuracy": 0.9775066276148691,
+        "precision": 0.9355920831935592,
+        "recall": 0.6143171806167401,
+        "f1_score": 0.7416566945884856,
+        "auc": 0.8752437518930415
+    },
+    "confusion_matrix": {
+        "TP": 2789,
+        "FP": 192,
+        "FN": 1751,
+        "TN": 81649
+    },
+    "test_mae_stats": {
+        "mean": 0.014170215465128422,
+        "median": 0.001060347305610776,
+        "std": 0.11248531937599182,
+        "min": 0.00011840462684631348,
+        "max": 1.9033806324005127
+    },
+    "data_info": {
+        "total_samples": 86401,
+        "total_sequences": 86381,
+        "total_attacks": 4540,
+        "daytime_only": false
+    }
+}
