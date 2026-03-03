@@ -84,6 +84,49 @@ st.markdown("""
     }
     .badge-edge { background-color: #e0f7fa; color: #006064; border: 1px solid #b2ebf2; }
     .badge-lambda { background-color: #f3e5f5; color: #4a148c; border: 1px solid #e1bee7; }
+    .badge-nano   { background-color: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+    .badge-global { background-color: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+    .arch-card {
+        padding: 1.2rem 1.5rem;
+        border-radius: 10px;
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 0.5rem;
+    }
+    .arch-selected-cfl {
+        border-color: #2a5298;
+        background: linear-gradient(135deg, #e8f0fe, #c7d9f9);
+    }
+    .arch-selected-hfl {
+        border-color: #006400;
+        background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+    }
+    .arch-unselected {
+        border-color: #e0e0e0;
+        background: #f8f9fa;
+    }
+    .tier-box {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem 1.2rem;
+        border-left: 5px solid;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .tier-global { border-color: #1b5e20; }
+    .tier-edge   { border-color: #e65100; }
+    .tier-client { border-color: #4a148c; }
+    .info-pill {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: #e3f2fd;
+        color: #1565c0;
+        margin-top: 4px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -159,17 +202,17 @@ AVAILABLE_DEVICES = {
     }
 }
 
+# Only Jetson edge devices (no Lambda) for server/aggregator roles
+EDGE_ONLY_DEVICES = {k: v for k, v in AVAILABLE_DEVICES.items() if v["type"] == "EDGE"}
+
 def check_device_status(hostname, ip):
     try:
-        # Optimization: Don't SSH if target is localhost/lambda
         if ip == "127.0.0.1" or ip == "localhost":
             return True
-            
         result = subprocess.run(
             ["ssh", "-o", "ConnectTimeout=2", "-o", "StrictHostKeyChecking=no",
              f"{hostname}@{ip}", "echo 'connected'"],
-            capture_output=True,
-            timeout=3
+            capture_output=True, timeout=3
         )
         return result.returncode == 0
     except:
@@ -235,9 +278,7 @@ with st.expander("View All Available Devices", expanded=False):
             is_online = st.session_state.device_status_cache.get(ip, False)
             status_class = "status-online" if is_online else "status-offline"
             status_text = "Online" if is_online else "Offline"
-            
             badge_class = "badge-lambda" if device_info['type'] == "LAMBDA" else "badge-edge"
-            
             st.markdown(f"""
             <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #2a5298; margin-bottom: 0.8rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -257,30 +298,302 @@ with st.expander("View All Available Devices", expanded=False):
 st.markdown("---")
 
 # ==========================================
-# 6. FL CONFIGURATION
+# 6. ARCHITECTURE SELECTION  ← NEW
+# ==========================================
+st.markdown('<div class="section-header">FL Architecture</div>', unsafe_allow_html=True)
+
+if 'fl_architecture' not in st.session_state:
+    st.session_state.fl_architecture = "Centralized FL"
+
+arch_col1, arch_col2 = st.columns(2)
+
+with arch_col1:
+    cfl_selected = st.session_state.fl_architecture == "Centralized FL"
+    cfl_style = "arch-selected-cfl" if cfl_selected else "arch-unselected"
+    st.markdown(f"""
+    <div class="arch-card {cfl_style}">
+        <h3 style="margin:0; color: #1e3c72;">🖥️ Centralized FL</h3>
+        <p style="margin: 0.5rem 0 0 0; color: #444; font-size: 0.9rem;">
+            All clients communicate directly with a single FL server.<br>
+            <strong>Server → N Clients</strong> (2-tier)
+        </p>
+        <span class="info-pill">Current Setup</span>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Select Centralized FL", use_container_width=True, key="sel_cfl",
+                 type="primary" if cfl_selected else "secondary"):
+        st.session_state.fl_architecture = "Centralized FL"
+        st.rerun()
+
+with arch_col2:
+    hfl_selected = st.session_state.fl_architecture == "HFL"
+    hfl_style = "arch-selected-hfl" if hfl_selected else "arch-unselected"
+    st.markdown(f"""
+    <div class="arch-card {hfl_style}">
+        <h3 style="margin:0; color: #006400;">🌿 Hierarchical FL (HFL)</h3>
+        <p style="margin: 0.5rem 0 0 0; color: #444; font-size: 0.9rem;">
+            Clients → Nano Edge Aggregators → AGX Global Server.<br>
+            <strong>3-Tier: Client → Edge → Global</strong>
+        </p>
+        <span class="info-pill" style="background:#e8f5e9; color:#1b5e20;">MQW-HierFAVG</span>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Select HFL", use_container_width=True, key="sel_hfl",
+                 type="primary" if hfl_selected else "secondary"):
+        st.session_state.fl_architecture = "HFL"
+        st.rerun()
+
+st.markdown("---")
+
+# ==========================================
+# 7. FL CONFIGURATION  (Architecture-aware)
 # ==========================================
 st.markdown('<div class="section-header">FL Configuration</div>', unsafe_allow_html=True)
 
+# ── Shared hyperparameters (always visible) ──────────────────────────────────
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    server_device = st.selectbox(
-        "Server Device",
-        options=list(AVAILABLE_DEVICES.keys()),
-        format_func=lambda x: f"{AVAILABLE_DEVICES[x]['display_name']} ({x})"
-    )
-    server_ip = server_device
-    server_port = st.text_input("Port", "8080")
-with col2:
     model = st.selectbox("Model", ["lstm", "bilstm"])
-    algo = st.selectbox("Algorithm", ["fedavg", "fedprox"])
+    algo  = st.selectbox("Algorithm", ["fedavg", "fedprox"])
+with col2:
+    total_clients = st.number_input("Total Clients", min_value=1, value=20)
+    epochs        = st.number_input("Epochs/Client", min_value=1, max_value=50, value=5)
 with col3:
-    total_clients = st.number_input("Total Clients", min_value=1, value=20) 
-    epochs = st.number_input("Epochs/Client", min_value=1, max_value=50, value=5)
+    threshold_percentile = st.number_input("Anomaly Threshold (%)", min_value=90.0, max_value=100.0,
+                                           value=99.0, step=0.1)
 with col4:
-    threshold_percentile = st.number_input("Anomaly Threshold (%)", min_value=90.0, max_value=100.0, value=99.0, step=0.1)
+    if st.session_state.fl_architecture == "HFL":
+        local_rounds  = st.number_input("Local Rounds (τ₁)", min_value=1, max_value=20, value=3,
+                                         help="Rounds each Nano runs with its clients before uploading to AGX")
+        global_rounds = st.number_input("Global Rounds (τ₂)", min_value=1, max_value=50, value=10,
+                                         help="Rounds AGX runs across all Nano aggregators")
+        use_mqw = st.checkbox("Quality Weighting (MQW)", value=True,
+                              help="Enable MAE-based quality weighting at edge tier")
+    else:
+        # Centralized FL: single server config in col4 area
+        pass
+
+# ── Architecture-specific server config ──────────────────────────────────────
+if st.session_state.fl_architecture == "Centralized FL":
+    # ── Original 2-tier setup ────────────────────────────────────────────────
+    st.markdown("#### 🖥️ Server Configuration")
+    c1, c2 = st.columns(2)
+    with c1:
+        server_device = st.selectbox(
+            "Server Device",
+            options=list(AVAILABLE_DEVICES.keys()),
+            format_func=lambda x: f"{AVAILABLE_DEVICES[x]['display_name']} ({x})"
+        )
+        server_ip   = server_device
+        server_port = st.text_input("Port", "8080")
+    with c2:
+        st.markdown("""
+        <div style="background:#e8f0fe; padding:1rem; border-radius:8px; margin-top:1.8rem;">
+            <strong>2-Tier Architecture</strong><br>
+            <small>Server receives uploads from all N clients directly.<br>
+            Network overhead scales with N.</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Store for downstream use
+    hfl_clusters = []
+
+else:
+    # ── 3-Tier HFL setup ────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="background: linear-gradient(to right,#e8f5e9,#f1f8e9);
+                padding: 0.8rem 1.2rem; border-radius: 8px; margin-bottom: 1.2rem;
+                border-left: 4px solid #2e7d32;">
+        <strong style="color:#1b5e20;">HFL Mode Active</strong> — Configure all three tiers below.
+        Clients will connect to their assigned Nano, not the AGX directly.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Tier 3: Global Aggregator (AGX) ─────────────────────────────────────
+    st.markdown("""
+    <div class="tier-box tier-global">
+        <strong style="color:#1b5e20; font-size:1.05rem;">🌐 Tier 3 — Global Aggregator (AGX)</strong>
+        <p style="margin:0.3rem 0 0 0; color:#555; font-size:0.88rem;">
+            Aggregates models from all Nano edge servers. Runs <code>global_server.py</code>.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    g1, g2 = st.columns(2)
+    with g1:
+        agx_device = st.selectbox(
+            "Global Aggregator Device",
+            options=list(EDGE_ONLY_DEVICES.keys()),
+            format_func=lambda x: f"{AVAILABLE_DEVICES[x]['display_name']} ({x})",
+            index=0,
+            key="agx_device"
+        )
+        server_ip   = agx_device
+        server_port = st.text_input("AGX Port", "8080", key="agx_port")
+    with g2:
+        st.markdown(f"""
+        <div style="background:#e8f5e9; padding:0.9rem; border-radius:8px; margin-top:1.8rem;">
+            <strong>Selected:</strong> {AVAILABLE_DEVICES[agx_device]['display_name']}<br>
+            <small>IP: {agx_device} | Port: {server_port}</small><br>
+            <small>Expects <strong>1 upload per Nano</strong> per global round (N-independent)</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Tier 2: Nano Edge Aggregators ────────────────────────────────────────
+    st.markdown("""
+    <div class="tier-box tier-edge">
+        <strong style="color:#e65100; font-size:1.05rem;">📡 Tier 2 — Edge Aggregators (Nanos)</strong>
+        <p style="margin:0.3rem 0 0 0; color:#555; font-size:0.88rem;">
+            Each Nano is a cluster head. Runs <code>edge_aggregator.py</code> (server to clients on port 8081,
+            client to AGX on port 8080).
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Initialize HFL clusters in session state
+    if 'hfl_clusters' not in st.session_state:
+        st.session_state.hfl_clusters = [
+            {"nano_ip": "10.226.47.0",   "nano_port": "8081", "client_ids": "1-5"},
+            {"nano_ip": "10.226.47.108", "nano_port": "8081", "client_ids": "6-10"},
+            {"nano_ip": "10.226.46.8",   "nano_port": "8081", "client_ids": "11-15"},
+            {"nano_ip": "10.226.47.64",  "nano_port": "8081", "client_ids": "16-20"},
+        ]
+
+    # Filter available nano options (exclude whatever is chosen as AGX)
+    nano_options = [ip for ip in EDGE_ONLY_DEVICES.keys() if ip != agx_device]
+
+    clusters_to_remove = []
+    for cidx, cluster in enumerate(st.session_state.hfl_clusters):
+        with st.container():
+            st.markdown(f"""
+            <div style="background: #fff8f0; padding: 0.6rem 1rem; border-radius: 6px;
+                        border: 1px solid #ffcc80; margin-bottom: 0.4rem;">
+                <strong style="color:#e65100;">Cluster {cidx + 1}</strong>
+            </div>
+            """, unsafe_allow_html=True)
+
+            cc1, cc2, cc3, cc4 = st.columns([3, 1, 3, 1])
+            with cc1:
+                default_idx = nano_options.index(cluster["nano_ip"]) if cluster["nano_ip"] in nano_options else 0
+                selected_nano = st.selectbox(
+                    "Nano Device",
+                    options=nano_options,
+                    format_func=lambda x: f"{AVAILABLE_DEVICES[x]['display_name']} ({x})",
+                    index=default_idx,
+                    key=f"nano_dev_{cidx}"
+                )
+                st.session_state.hfl_clusters[cidx]["nano_ip"] = selected_nano
+
+            with cc2:
+                port_val = st.text_input("Port", value=cluster["nano_port"], key=f"nano_port_{cidx}")
+                st.session_state.hfl_clusters[cidx]["nano_port"] = port_val
+
+            with cc3:
+                client_ids_raw = st.text_input(
+                    "Client IDs (e.g. 1-5, 7, 9)",
+                    value=cluster["client_ids"],
+                    key=f"nano_clients_{cidx}",
+                    help="Ranges like 1-5, singles like 7, or comma-separated"
+                )
+                st.session_state.hfl_clusters[cidx]["client_ids"] = client_ids_raw
+
+                # Preview parsed IDs
+                try:
+                    parsed = []
+                    for part in [p.strip() for p in client_ids_raw.split(',')]:
+                        if '-' in part:
+                            s, e = map(int, part.split('-'))
+                            parsed.extend(range(s, e + 1))
+                        else:
+                            parsed.append(int(part))
+                    parsed = sorted(set(parsed))
+                    st.caption(f"→ {len(parsed)} clients: {parsed}")
+                except:
+                    st.caption("⚠️ Invalid format")
+
+            with cc4:
+                st.write("")
+                st.write("")
+                if st.button("🗑️", key=f"rm_cluster_{cidx}", help="Remove this cluster"):
+                    clusters_to_remove.append(cidx)
+
+    for idx in sorted(clusters_to_remove, reverse=True):
+        st.session_state.hfl_clusters.pop(idx)
+    if clusters_to_remove:
+        st.rerun()
+
+    add_col, _ = st.columns([1, 3])
+    with add_col:
+        if st.button("➕ Add Cluster", use_container_width=True):
+            used_nanos = [c["nano_ip"] for c in st.session_state.hfl_clusters]
+            available_nanos = [ip for ip in nano_options if ip not in used_nanos]
+            new_nano = available_nanos[0] if available_nanos else nano_options[0]
+            next_start = max(
+                [max([int(p) for p in c["client_ids"].replace('-', ',').split(',') if p.strip().isdigit()] or [0])
+                 for c in st.session_state.hfl_clusters], default=0
+            ) + 1
+            st.session_state.hfl_clusters.append({
+                "nano_ip": new_nano,
+                "nano_port": "8081",
+                "client_ids": f"{next_start}-{next_start + 4}"
+            })
+            st.rerun()
+
+    # Build hfl_clusters parsed for use downstream
+    hfl_clusters = []
+    for cidx, cluster in enumerate(st.session_state.hfl_clusters):
+        try:
+            parsed_ids = []
+            for part in [p.strip() for p in cluster["client_ids"].split(',')]:
+                if '-' in part:
+                    s, e = map(int, part.split('-'))
+                    parsed_ids.extend(range(s, e + 1))
+                elif part.isdigit():
+                    parsed_ids.append(int(part))
+            hfl_clusters.append({
+                "cluster_idx": cidx + 1,
+                "nano_ip": cluster["nano_ip"],
+                "nano_port": cluster["nano_port"],
+                "nano_hostname": AVAILABLE_DEVICES[cluster["nano_ip"]]["hostname"],
+                "nano_display": AVAILABLE_DEVICES[cluster["nano_ip"]]["display_name"],
+                "client_ids": sorted(set(parsed_ids))
+            })
+        except:
+            pass
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Tier 1: FL Clients ────────────────────────────────────────────────────
+    st.markdown("""
+    <div class="tier-box tier-client">
+        <strong style="color:#4a148c; font-size:1.05rem;">💻 Tier 1 — FL Clients (Lambda)</strong>
+        <p style="margin:0.3rem 0 0 0; color:#555; font-size:0.88rem;">
+            Clients are configured in the <strong>Deployment Targets</strong> section below.
+            In HFL mode, each client's <code>SERVER_IP</code> is auto-set to its assigned Nano,
+            not the AGX.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Show assignment summary
+    if hfl_clusters:
+        summary_cols = st.columns(len(hfl_clusters))
+        for cidx, cluster in enumerate(hfl_clusters):
+            with summary_cols[cidx]:
+                st.markdown(f"""
+                <div style="background: #f8f9fa; padding: 0.8rem; border-radius: 8px;
+                            border-top: 3px solid #e65100; text-align:center;">
+                    <strong>{cluster['nano_display']}</strong><br>
+                    <small style="color:#666;">Cluster {cluster['cluster_idx']}</small><br>
+                    <span style="color:#4a148c; font-weight:600;">{len(cluster['client_ids'])} clients</span><br>
+                    <small>IDs: {cluster['client_ids'][:3]}{'...' if len(cluster['client_ids']) > 3 else ''}</small>
+                </div>
+                """, unsafe_allow_html=True)
 
 # ==========================================
-# 7. DOCKER IMAGE CONFIGURATION
+# 8. DOCKER IMAGE CONFIGURATION
 # ==========================================
 st.markdown("### 🐳 Docker Images")
 st.caption("Specify the exact Docker image names to use for each architecture.")
@@ -299,12 +612,33 @@ with col_img2:
         help="Used for the Lambda Server containers"
     )
 
+if st.session_state.fl_architecture == "HFL":
+    col_img3, col_img4 = st.columns(2)
+    with col_img3:
+        image_global_server = st.text_input(
+            "Global Server Image (ARM64)",
+            "hamzakarim07/flwr_global_server:latest",
+            help="Runs global_server.py on AGX"
+        )
+    with col_img4:
+        image_edge_aggregator = st.text_input(
+            "Edge Aggregator Image (ARM64)",
+            "hamzakarim07/flwr_edge_aggregator:latest",
+            help="Runs edge_aggregator.py on each Nano"
+        )
+
 st.markdown("---")
 
 # ==========================================
-# 8. DEVICE CONFIGURATION
+# 9. DEPLOYMENT TARGETS  (unchanged section)
 # ==========================================
 st.markdown('<div class="section-header">Deployment Targets</div>', unsafe_allow_html=True)
+
+if st.session_state.fl_architecture == "HFL" and hfl_clusters:
+    st.info(
+        "ℹ️ **HFL Mode**: Add your Lambda Server below. Clients will automatically get "
+        "`SERVER_IP` set to their assigned Nano based on the cluster configuration above."
+    )
 
 if 'clients' not in st.session_state:
     st.session_state.clients = []
@@ -331,16 +665,13 @@ with st.expander("➕ Add New Target Device", expanded=len(st.session_state.clie
             try:
                 client_ids = []
                 parts = [p.strip() for p in client_range.split(',')]
-                
                 for part in parts:
                     if '-' in part:
                         start, end = map(int, part.split('-'))
                         client_ids.extend(range(start, end + 1))
                     else:
                         client_ids.append(int(part))
-                
                 client_ids = sorted(set(client_ids))
-                
                 if not client_ids:
                     st.error("⚠️ No valid client IDs entered")
                 else:
@@ -368,9 +699,26 @@ if st.session_state.clients:
     """, unsafe_allow_html=True)
     
     for idx, device in enumerate(st.session_state.clients):
-        # Badge logic
         badge_cls = "badge-lambda" if device['type'] == "LAMBDA" else "badge-edge"
         
+        # In HFL mode: show which Nano each client maps to
+        hfl_routing_info = ""
+        if st.session_state.fl_architecture == "HFL" and hfl_clusters:
+            routing_lines = []
+            for cid in device['client_ids']:
+                assigned = None
+                for cluster in hfl_clusters:
+                    if cid in cluster['client_ids']:
+                        assigned = cluster
+                        break
+                if assigned:
+                    routing_lines.append(f"Client {cid} → {assigned['nano_display']}")
+                else:
+                    routing_lines.append(f"Client {cid} → ⚠️ Unassigned")
+            hfl_routing_info = " | ".join(routing_lines[:3])
+            if len(routing_lines) > 3:
+                hfl_routing_info += f" + {len(routing_lines)-3} more"
+
         st.markdown(f"""
         <div style="background: white; padding: 1rem; border-radius: 8px; 
                     border: 1px solid #e0e0e0; margin-bottom: 1rem; 
@@ -378,26 +726,23 @@ if st.session_state.clients:
         """, unsafe_allow_html=True)
         
         col1, col2, col3 = st.columns([3, 2, 1])
-        
         with col1:
             st.markdown(f"**{device['display_name']}** <span class='device-badge {badge_cls}'>{device['type']}</span>", unsafe_allow_html=True)
             st.caption(f"IP: {device['ip']}")
-        
+            if hfl_routing_info:
+                st.caption(f"🔀 {hfl_routing_info}")
         with col2:
             ids_str = ', '.join(map(str, device['client_ids']))
             st.write(f"Clients: {ids_str}")
             st.caption(f"({len(device['client_ids'])} containers)")
-        
         with col3:
             if st.button("Remove", key=f"rm_{idx}", use_container_width=True):
                 st.session_state.clients.pop(idx)
                 st.rerun()
-            
             if st.button("Cleanup", key=f"clean_{idx}", use_container_width=True):
                 with st.spinner(f"Cleaning {device['display_name']}..."):
                     cleanup_cmd = "docker ps -aq --filter 'name=flwr-client' | xargs -r docker rm -f"
                     try:
-                        # Handle localhost vs SSH
                         if device['ip'] == "127.0.0.1" or device['ip'] == "localhost":
                             subprocess.run(cleanup_cmd, shell=True, check=True, executable='/bin/bash')
                         else:
@@ -409,13 +754,12 @@ if st.session_state.clients:
                         st.success(f"✓ Cleaned {device['display_name']}")
                     except subprocess.CalledProcessError:
                         st.error(f"✗ Failed to cleanup {device['display_name']}")
-        
         st.markdown("</div>", unsafe_allow_html=True)
 else:
     st.info("No devices configured for deployment yet. Add your first device above.")
 
 # ==========================================
-# 9. TOPOLOGY VISUALIZATION
+# 10. TOPOLOGY VISUALIZATION  (Architecture-aware)
 # ==========================================
 st.markdown('<div class="section-header">Network Topology</div>', unsafe_allow_html=True)
 
@@ -423,87 +767,108 @@ dot = Digraph(format="png")
 dot.attr(rankdir='TB', bgcolor='transparent', fontname='Helvetica', fontsize='10')
 dot.attr('edge', penwidth='2')
 
-server_display = AVAILABLE_DEVICES[server_ip]["display_name"]
-dot.node(
-    'server',
-    f"🖥️ {server_display}\n{server_ip}:{server_port}\nFL Server\n{algo.upper()}",
-    shape='box',
-    style='filled,rounded,bold',
-    fillcolor='#4caf50',
-    fontcolor='white',
-    penwidth='2'
-)
+if st.session_state.fl_architecture == "Centralized FL":
+    # ── 2-tier: original topology ────────────────────────────────────────────
+    server_display = AVAILABLE_DEVICES[server_ip]["display_name"]
+    dot.node(
+        'server',
+        f"🖥️ {server_display}\n{server_ip}:{server_port}\nFL Server\n{algo.upper()}",
+        shape='box', style='filled,rounded,bold',
+        fillcolor='#4caf50', fontcolor='white', penwidth='2'
+    )
+    for idx, device in enumerate(st.session_state.clients):
+        with dot.subgraph(name=f'cluster_{idx}') as c:
+            c.attr(style='rounded,dashed', color='#2a5298', label=f"{device['display_name']}")
+            c.attr(rank='same')
+            for cid in device['client_ids']:
+                client_node = f"{device['hostname']}_c{cid}"
+                is_online = st.session_state.device_status_cache.get(device['ip'], True)
+                fill_color = '#a8e6a1' if is_online else '#fca5a5'
+                status_emoji = '🟢' if is_online else '🔴'
+                c.node(client_node, f"{status_emoji} Client {cid}",
+                       shape='circle', style='filled,rounded',
+                       fillcolor=fill_color, fontcolor='black')
+                edge_style = 'solid' if is_online else 'dashed'
+                edge_color = '#2a5298' if is_online else '#ff6b6b'
+                dot.edge('server', client_node, style=edge_style, color=edge_color)
 
-for idx, device in enumerate(st.session_state.clients):
-    with dot.subgraph(name=f'cluster_{idx}') as c:
-        c.attr(style='rounded,dashed', color='#2a5298', label=f"{device['display_name']}")
-        c.attr(rank='same')
-        
-        client_list = device['client_ids']
-        
-        for cid in client_list:
-            client_node = f"{device['hostname']}_c{cid}"
-            is_online = st.session_state.device_status_cache.get(device['ip'], True)
-            fill_color = '#a8e6a1' if is_online else '#fca5a5'
-            status_emoji = '🟢' if is_online else '🔴'
-            
-            c.node(
-                client_node,
-                f"{status_emoji} Client {cid}",
-                shape='circle',
-                style='filled,rounded',
-                fillcolor=fill_color,
-                fontcolor='black'
-            )
-            
-            edge_style = 'solid' if is_online else 'dashed'
-            edge_color = '#2a5298' if is_online else '#ff6b6b'
-            dot.edge('server', client_node, style=edge_style, color=edge_color)
+else:
+    # ── 3-tier: HFL topology ─────────────────────────────────────────────────
+    agx_display = AVAILABLE_DEVICES[server_ip]["display_name"]
+    dot.node(
+        'agx',
+        f"🌐 {agx_display}\n{server_ip}:{server_port}\nGlobal Aggregator\nglobal_server.py",
+        shape='box', style='filled,rounded,bold',
+        fillcolor='#1b5e20', fontcolor='white', penwidth='3'
+    )
+
+    for cluster in hfl_clusters:
+        nano_node = f"nano_{cluster['cluster_idx']}"
+        nano_display = cluster['nano_display']
+        is_nano_online = st.session_state.device_status_cache.get(cluster['nano_ip'], True)
+        nano_fill = '#ff8f00' if is_nano_online else '#fca5a5'
+        dot.node(
+            nano_node,
+            f"📡 {nano_display}\n{cluster['nano_ip']}:{cluster['nano_port']}\nEdge Aggregator\nedge_aggregator.py",
+            shape='box', style='filled,rounded',
+            fillcolor=nano_fill, fontcolor='white', penwidth='2'
+        )
+        dot.edge('agx', nano_node, color='#1b5e20', penwidth='2',
+                 label=f"Backhaul")
+
+        # Add client nodes under each Nano
+        with dot.subgraph(name=f'cluster_nano_{cluster["cluster_idx"]}') as c:
+            c.attr(style='rounded,dashed', color='#e65100',
+                   label=f"Cluster {cluster['cluster_idx']}")
+            for cid in cluster['client_ids']:
+                client_node = f"client_{cid}"
+                # Check if any deployment device has this client
+                is_online = True
+                for dev in st.session_state.clients:
+                    if cid in dev['client_ids']:
+                        is_online = st.session_state.device_status_cache.get(dev['ip'], True)
+                        break
+                fill_color = '#a8e6a1' if is_online else '#fca5a5'
+                status_emoji = '🟢' if is_online else '🔴'
+                c.node(client_node, f"{status_emoji} Client {cid}",
+                       shape='circle', style='filled,rounded',
+                       fillcolor=fill_color, fontcolor='black')
+                dot.edge(nano_node, client_node, color='#4a148c',
+                         style='solid' if is_online else 'dashed')
 
 st.graphviz_chart(dot)
-
 st.markdown("---")
-                        
+
 # ==========================================
-# 10. DEPLOYMENT CONTROL
+# 11. DEPLOYMENT CONTROL  (Architecture-aware)
 # ==========================================
 st.markdown('<div class="section-header">Deployment Control</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.session_state.clients:
-        if st.button("🚀 Deploy to All Devices", type="primary", use_container_width=True):
-            for device in st.session_state.clients:
-                with st.expander(f"Deploying to {device['display_name']}...", expanded=True):
-                    
-                    # ==========================================
-                    # DYNAMIC IMAGE SELECTION LOGIC
-                    # ==========================================
-                    if device['type'] == "LAMBDA":
-                        target_image = image_lambda
-                        # LAMBDA: Needs --privileged to fix NVML/GPU access issues
-                        # Uses standard --gpus all
-                        docker_flags = "--privileged --gpus all"
-                    else:
-                        target_image = image_edge
-                        # EDGE (Jetson): Needs --runtime=nvidia for JetPack
-                        docker_flags = "--runtime=nvidia --gpus all"
-                    
-                    st.write(f"🔹 Target Image: `{target_image}`")
-                    st.write(f"⚙️ Runtime Flags: `{docker_flags}`")
+    if st.session_state.fl_architecture == "Centralized FL":
+        # ── Original Centralized FL deploy ───────────────────────────────────
+        if st.session_state.clients:
+            if st.button("🚀 Deploy to All Devices", type="primary", use_container_width=True):
+                for device in st.session_state.clients:
+                    with st.expander(f"Deploying to {device['display_name']}...", expanded=True):
+                        if device['type'] == "LAMBDA":
+                            target_image = image_lambda
+                            docker_flags = "--privileged --gpus all"
+                        else:
+                            target_image = image_edge
+                            docker_flags = "--runtime=nvidia --gpus all"
 
-                    # Base script: Pull first, clean old containers
-                    script = f"""
-                    docker pull {target_image}
-                    docker ps -aq --filter 'name=flwr-client' | xargs -r docker rm -f
-                    """
-                    
-                    client_list = device['client_ids']
-                    
-                    for cid in client_list:
-                        # Add run command for each client
-                        script += f"""
+                        st.write(f"🔹 Target Image: `{target_image}`")
+                        st.write(f"⚙️ Runtime Flags: `{docker_flags}`")
+
+                        script = f"""
+                        docker pull {target_image}
+                        docker ps -aq --filter 'name=flwr-client' | xargs -r docker rm -f
+                        """
+                        for cid in device['client_ids']:
+                            script += f"""
 docker run -d --name flwr-client{cid} \\
   {docker_flags} \\
   --net=host \\
@@ -518,67 +883,185 @@ docker run -d --name flwr-client{cid} \\
   -e THRESHOLD_PERCENTILE={threshold_percentile} \\
   {target_image}
 """
+                        try:
+                            if device['ip'] in ("127.0.0.1", "localhost"):
+                                subprocess.run(script, shell=True, check=True, executable='/bin/bash')
+                            else:
+                                subprocess.run(
+                                    ["ssh", "-o", "StrictHostKeyChecking=no",
+                                     f"{device['hostname']}@{device['ip']}", script],
+                                    check=True, capture_output=True, text=True
+                                )
+                            st.success(f"✓ Deployed {len(device['client_ids'])} containers to {device['display_name']}")
+                        except subprocess.CalledProcessError as e:
+                            st.error(f"✗ Deployment failed on {device['display_name']}")
+                            with st.expander("Error details"):
+                                st.code(e.stderr if hasattr(e, 'stderr') else str(e))
+        else:
+            st.warning("⚠️ Add at least one device to begin deployment")
+
+    else:
+        # ── HFL Deploy ───────────────────────────────────────────────────────
+        if st.button("🚀 Deploy HFL (All Tiers)", type="primary", use_container_width=True):
+            if not hfl_clusters:
+                st.error("⚠️ No clusters configured. Set up Tier 2 (Nanos) above.")
+            else:
+                # --- Step 1: Deploy Global Server on AGX ---
+                with st.expander("Step 1 — Deploy Global Server on AGX", expanded=True):
+                    agx_info = AVAILABLE_DEVICES[server_ip]
+                    mqw_flag  = "true" if use_mqw else "false"
+                    n_nanos   = len(hfl_clusters)
+
+                    agx_script = f"""
+docker pull {image_global_server}
+docker ps -aq --filter 'name=flwr-global-server' | xargs -r docker rm -f
+docker run -d --name flwr-global-server \\
+  --runtime=nvidia --gpus all \\
+  --net=host \\
+  -e SERVER_PORT={server_port} \\
+  -e NUM_NANOS={n_nanos} \\
+  -e GLOBAL_ROUNDS={global_rounds} \\
+  -e MODEL={model} \\
+  -e ALGO={algo} \\
+  {image_global_server}
+"""
+                    st.code(agx_script, language="bash")
                     try:
-                        # Logic to handle Localhost (Lambda) vs Remote (SSH)
-                        if device['ip'] == "127.0.0.1" or device['ip'] == "localhost":
-                            # Run direct subprocess if we are ON the Lambda
-                            # Using executable=/bin/bash is safer for multi-line scripts
-                            subprocess.run(script, shell=True, check=True, executable='/bin/bash')
-                        else:
-                            # Run via SSH for remote edge devices
+                        subprocess.run(
+                            ["ssh", "-o", "StrictHostKeyChecking=no",
+                             f"{agx_info['hostname']}@{server_ip}", agx_script],
+                            check=True, capture_output=True, text=True
+                        )
+                        st.success(f"✓ Global server deployed on {agx_info['display_name']}")
+                    except subprocess.CalledProcessError as e:
+                        st.error(f"✗ Failed to deploy global server")
+                        with st.expander("Error"):
+                            st.code(getattr(e, 'stderr', str(e)))
+
+                # --- Step 2: Deploy Edge Aggregator on each Nano ---
+                with st.expander("Step 2 — Deploy Edge Aggregators on Nanos", expanded=True):
+                    for cluster in hfl_clusters:
+                        n_clients = len(cluster['client_ids'])
+                        nano_script = f"""
+docker pull {image_edge_aggregator}
+docker ps -aq --filter 'name=flwr-edge-agg' | xargs -r docker rm -f
+docker run -d --name flwr-edge-agg-{cluster['cluster_idx']} \\
+  --runtime=nvidia --gpus all \\
+  --net=host \\
+  -e CLUSTER_ID={cluster['cluster_idx']} \\
+  -e EDGE_PORT={cluster['nano_port']} \\
+  -e GLOBAL_SERVER_IP={server_ip} \\
+  -e GLOBAL_SERVER_PORT={server_port} \\
+  -e NUM_CLIENTS={n_clients} \\
+  -e LOCAL_ROUNDS={local_rounds} \\
+  -e USE_MQW={mqw_flag} \\
+  -e MODEL={model} \\
+  {image_edge_aggregator}
+"""
+                        st.markdown(f"**{cluster['nano_display']}** — Cluster {cluster['cluster_idx']} ({n_clients} clients)")
+                        st.code(nano_script, language="bash")
+                        try:
                             subprocess.run(
                                 ["ssh", "-o", "StrictHostKeyChecking=no",
-                                 f"{device['hostname']}@{device['ip']}", script],
-                                check=True,
-                                capture_output=True,
-                                text=True
+                                 f"{cluster['nano_hostname']}@{cluster['nano_ip']}", nano_script],
+                                check=True, capture_output=True, text=True
                             )
-                        
-                        st.success(f"✓ Deployed {len(client_list)} containers to {device['display_name']}")
-                    except subprocess.CalledProcessError as e:
-                        st.error(f"✗ Deployment failed on {device['display_name']}")
-                        with st.expander("Error details"):
-                            st.code(e.stderr if hasattr(e, 'stderr') else str(e))
-    else:
-        st.warning("⚠️ Add at least one device to begin deployment")
+                            st.success(f"✓ Edge aggregator deployed on {cluster['nano_display']}")
+                        except subprocess.CalledProcessError as e:
+                            st.error(f"✗ Failed on {cluster['nano_display']}")
+                            with st.expander("Error"):
+                                st.code(getattr(e, 'stderr', str(e)))
+
+                # --- Step 3: Deploy Clients on Lambda ---
+                with st.expander("Step 3 — Deploy Clients (with Nano routing)", expanded=True):
+                    if not st.session_state.clients:
+                        st.warning("No client devices configured in Deployment Targets.")
+                    else:
+                        for device in st.session_state.clients:
+                            target_image = image_lambda if device['type'] == "LAMBDA" else image_edge
+                            docker_flags = "--privileged --gpus all" if device['type'] == "LAMBDA" else "--runtime=nvidia --gpus all"
+
+                            script = f"""
+docker pull {target_image}
+docker ps -aq --filter 'name=flwr-client' | xargs -r docker rm -f
+"""
+                            for cid in device['client_ids']:
+                                # Find which Nano this client belongs to
+                                assigned_nano_ip   = server_ip    # fallback to AGX
+                                assigned_nano_port = server_port
+                                assigned_cluster   = 0
+                                for cluster in hfl_clusters:
+                                    if cid in cluster['client_ids']:
+                                        assigned_nano_ip   = cluster['nano_ip']
+                                        assigned_nano_port = cluster['nano_port']
+                                        assigned_cluster   = cluster['cluster_idx']
+                                        break
+
+                                script += f"""
+docker run -d --name flwr-client{cid} \\
+  {docker_flags} \\
+  --net=host \\
+  --cap-add=NET_ADMIN \\
+  -e CLIENT_ID={cid} \\
+  -e TOTAL_CLIENTS={total_clients} \\
+  -e EPOCHS={epochs} \\
+  -e MODEL={model} \\
+  -e ALGO={algo} \\
+  -e SERVER_IP={assigned_nano_ip} \\
+  -e SERVER_PORT={assigned_nano_port} \\
+  -e CLUSTER_ID={assigned_cluster} \\
+  -e THRESHOLD_PERCENTILE={threshold_percentile} \\
+  {target_image}
+"""
+                            st.markdown(f"**{device['display_name']}** — {len(device['client_ids'])} clients")
+                            st.code(script, language="bash")
+                            try:
+                                if device['ip'] in ("127.0.0.1", "localhost"):
+                                    subprocess.run(script, shell=True, check=True, executable='/bin/bash')
+                                else:
+                                    subprocess.run(
+                                        ["ssh", "-o", "StrictHostKeyChecking=no",
+                                         f"{device['hostname']}@{device['ip']}", script],
+                                        check=True, capture_output=True, text=True
+                                    )
+                                st.success(f"✓ Deployed {len(device['client_ids'])} clients to {device['display_name']}")
+                            except subprocess.CalledProcessError as e:
+                                st.error(f"✗ Failed on {device['display_name']}")
+                                with st.expander("Error"):
+                                    st.code(getattr(e, 'stderr', str(e)))
 
 with col2:
     if st.button("🗑️ Delete All Containers", type="secondary", use_container_width=True):
         st.warning("Cleaning all configured devices...")
+        
+        # In HFL mode also clean Nano edge aggregators and AGX global server
+        extra_filters = []
+        if st.session_state.fl_architecture == "HFL":
+            extra_filters = ["flwr-edge-agg", "flwr-global-server"]
+
         for ip, device_info in AVAILABLE_DEVICES.items():
-            
             with st.expander(f"Cleaning {device_info['display_name']} ({ip})", expanded=True):
-                cleanup_cmd = "docker ps -aq --filter 'name=flwr-client' | xargs -r docker rm -f"
-                try:
-                    if ip == "127.0.0.1" or ip == "localhost":
-                        subprocess.run(cleanup_cmd, shell=True, check=True, executable='/bin/bash')
-                    else:
-                        subprocess.run(
-                            ["ssh", "-o", "StrictHostKeyChecking=no",
-                             f"{device_info['hostname']}@{ip}", cleanup_cmd],
-                            check=True, capture_output=True
-                        )
-                    st.success(f"✓ Removed containers")
-                except subprocess.CalledProcessError:
-                    st.error(f"✗ Failed (device unreachable?)")
+                filters = ["flwr-client"] + extra_filters
+                for fname in filters:
+                    cleanup_cmd = f"docker ps -aq --filter 'name={fname}' | xargs -r docker rm -f"
+                    try:
+                        if ip in ("127.0.0.1", "localhost"):
+                            subprocess.run(cleanup_cmd, shell=True, check=False, executable='/bin/bash')
+                        else:
+                            subprocess.run(
+                                ["ssh", "-o", "StrictHostKeyChecking=no",
+                                 f"{device_info['hostname']}@{ip}", cleanup_cmd],
+                                check=False, capture_output=True
+                            )
+                    except:
+                        pass
+                st.success(f"✓ Cleaned")
 
-                # Also clean server if it exists there
-                cleanup_server = "docker ps -aq --filter 'name=flwr-server' | xargs -r docker rm -f"
-                try:
-                    if ip == "127.0.0.1" or ip == "localhost":
-                        subprocess.run(cleanup_server, shell=True, check=False, executable='/bin/bash')
-                    else:
-                        subprocess.run(
-                            ["ssh", "-o", "StrictHostKeyChecking=no",
-                             f"{device_info['hostname']}@{ip}", cleanup_server],
-                            check=False, capture_output=True
-                        )
-                except:
-                    pass
-
+# ==========================================
+# TRAINING RESULTS TABS
+# ==========================================
 st.markdown('<div class="section-header">Training Results</div>', unsafe_allow_html=True)
 
-# Define Tabs
 tab1, tab2, tab3 = st.tabs(["📊 Server Training Metrics", "🖼️ Client Training Images", "🧪 Inference Testing"])
 
 with tab1:
@@ -591,18 +1074,19 @@ with tab1:
                 server_hostname = AVAILABLE_DEVICES[server_ip]["hostname"]
                 server_display = AVAILABLE_DEVICES[server_ip]["display_name"]
                 
+                # Use correct container name depending on architecture
+                container_name = "flwr-global-server" if st.session_state.fl_architecture == "HFL" else "flwr-server_hfl"
+                
                 with st.spinner(f"Fetching training logs from {server_display}..."):
                     try:
-                        ssh_cmd = f"docker cp flwr-server_hfl:/app/src/log.txt /tmp/log.txt"
+                        ssh_cmd = f"docker cp {container_name}:/app/src/log.txt /tmp/log.txt"
                         subprocess.run([
                             "ssh", "-o", "StrictHostKeyChecking=no",
                             f"{server_hostname}@{server_ip}", ssh_cmd
                         ], check=True)
 
                         subprocess.run([
-                            "scp",
-                            f"{server_hostname}@{server_ip}:/tmp/log.txt",
-                            "log.txt"
+                            "scp", f"{server_hostname}@{server_ip}:/tmp/log.txt", "log.txt"
                         ], check=True)
 
                         with open("log.txt", "r") as f:
@@ -613,7 +1097,6 @@ with tab1:
                         train_loss_pattern = r"metrics_distributed_fit\s*\{.*\}"
 
                         losses, mape, train_loss = None, None, None
-                        
                         for line in lines:
                             if "losses_distributed" in line:
                                 match = re.search(loss_pattern, line)
@@ -635,18 +1118,15 @@ with tab1:
                         else:
                             st.session_state.losses = losses
                             st.session_state.mape = mape
-                            st.session_state.train_loss = train_loss 
+                            st.session_state.train_loss = train_loss
                             st.success("✅ Successfully parsed training metrics!")
                             
-                            if 'losses' in st.session_state and st.session_state.losses:
+                            if st.session_state.losses:
                                 losses = st.session_state.losses
                                 rounds_loss, loss_values = zip(*losses)
 
                                 if st.session_state.mape:
-                                    if isinstance(st.session_state.mape, dict):
-                                        mape_list = st.session_state.mape.get('mape', [])
-                                    else:
-                                        mape_list = st.session_state.mape
+                                    mape_list = st.session_state.mape.get('mape', []) if isinstance(st.session_state.mape, dict) else st.session_state.mape
                                     if mape_list:
                                         rounds_mape, mape_values = zip(*mape_list)
                                     else:
@@ -654,432 +1134,105 @@ with tab1:
                                 else:
                                     rounds_mape, mape_values = [], []
 
+                                rounds_train = []
+                                train_values = []
                                 if st.session_state.train_loss:
                                     rounds_train, train_values = zip(*st.session_state.train_loss)
-                                else:
-                                    rounds_train, train_values = [], []
 
                                 fig, ax = plt.subplots(figsize=(10, 6))
                                 ax.plot(rounds_loss, loss_values, marker='o', color='#2a5298', label='Test Loss', linewidth=2)
-                                
                                 if rounds_train:
                                     ax.plot(rounds_train, train_values, marker='^', color='#27ae60', label='Train Loss', linewidth=2, linestyle='--')
-
                                 ax.legend(loc='upper right')
-
                                 ax.set_xlabel("FL Round", fontsize=12)
                                 ax.set_ylabel("Loss (MAE)", fontsize=12)
-                                ax.set_title("Training vs. Validation Loss", fontsize=14, fontweight='bold')
+                                title_suffix = " [HFL - Global Rounds]" if st.session_state.fl_architecture == "HFL" else ""
+                                ax.set_title(f"Training vs. Validation Loss{title_suffix}", fontsize=14, fontweight='bold')
                                 ax.grid(True, linestyle='--', alpha=0.5)
-
                                 for x, y in zip(rounds_loss, loss_values):
                                     ax.annotate(f"{y:.3f}", xy=(x, y), xytext=(0, 10), textcoords='offset points', ha='center', fontsize=8, color='#2a5298')
-
                                 if rounds_train:
                                     for x, y in zip(rounds_train, train_values):
                                         ax.annotate(f"{y:.3f}", xy=(x, y), xytext=(0, -15), textcoords='offset points', ha='center', fontsize=8, color='#27ae60')
-
                                 st.pyplot(fig)
                                 
                                 buf = io.BytesIO()
                                 fig.savefig(buf, format="png")
                                 buf.seek(0)
-                                st.download_button("💾 Download Plot as PNG", data=buf, file_name="fl_overfitting_plot.png", mime="image/png")
+                                st.download_button("💾 Download Plot as PNG", data=buf, file_name="fl_loss_plot.png", mime="image/png")
 
-                                col_a, col_b = st.columns(2)
-                                with col_a:
-                                    st.metric("Final Test Loss", f"{loss_values[-1]:.4f}")
-                                with col_b:
-                                    if train_values:
-                                        st.metric("Final Train Loss", f"{train_values[-1]:.4f}")
-                                                    
-                            ssh_cmd_json = f"docker cp flwr-server_hfl:/app/src/fl_metrics.json /tmp/fl_metrics.json"
-                            subprocess.run([
-                                "ssh", "-o", "StrictHostKeyChecking=no",
-                                f"{server_hostname}@{server_ip}", ssh_cmd_json
-                            ], check=True)
-
-                            subprocess.run([
-                                "scp",
-                                f"{server_hostname}@{server_ip}:/tmp/fl_metrics.json",
-                                "fl_metrics.json"
-                            ], check=True)
+                            ssh_cmd_json = f"docker cp {container_name}:/app/src/fl_metrics.json /tmp/fl_metrics.json"
+                            subprocess.run(["ssh", "-o", "StrictHostKeyChecking=no",
+                                            f"{server_hostname}@{server_ip}", ssh_cmd_json], check=True)
+                            subprocess.run(["scp", f"{server_hostname}@{server_ip}:/tmp/fl_metrics.json", "fl_metrics.json"], check=True)
 
                             with open("fl_metrics.json", "r") as f:
                                 metrics_json = json.load(f)
 
-                            summary = metrics_json.get("summary", {})
+                            summary  = metrics_json.get("summary", {})
                             per_round = metrics_json.get("per_round_metrics", {})
-                            
-                            st.subheader("📊 Federated Learning Summary")
 
+                            st.subheader("📊 Federated Learning Summary")
                             total_rounds = summary.get("total_communication_rounds", 0)
                             if per_round and total_rounds > 0:
-                                avg_duration = sum(per_round[k].get("duration_seconds", 0) for k in per_round.keys()) / total_rounds
-                                avg_aggregation = sum(per_round[k].get("aggregation_time", 0) for k in per_round.keys()) / total_rounds
+                                avg_duration    = sum(per_round[k].get("duration_seconds", 0) for k in per_round) / total_rounds
+                                avg_aggregation = sum(per_round[k].get("aggregation_time", 0)  for k in per_round) / total_rounds
                             else:
-                                avg_duration = 0
-                                avg_aggregation = 0
+                                avg_duration = avg_aggregation = 0
 
                             col1, col2, col3, col4 = st.columns(4)
-                            with col1:
-                                st.metric("Total Rounds", total_rounds)
+                            with col1: st.metric("Total Rounds", total_rounds)
                             with col2:
                                 total_time = summary.get("total_training_time", 0)
                                 st.metric("Total Time", f"{total_time:.2f}s", delta=f"{total_time/60:.2f} min")
-                            with col3:
-                                st.metric("Avg Time/Round", f"{avg_duration:.2f}s")
-                            with col4:
-                                st.metric("Avg Aggregation", f"{avg_aggregation*1000:.2f}ms")
+                            with col3: st.metric("Avg Time/Round", f"{avg_duration:.2f}s")
+                            with col4: st.metric("Avg Aggregation", f"{avg_aggregation*1000:.2f}ms")
 
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
-                                total_bytes_sent = summary.get('total_bytes_sent', 0)
-                                st.metric("Total Bytes Sent", f"{total_bytes_sent/1024/1024:.2f} MB")
+                                tb_sent = summary.get('total_bytes_sent', 0)
+                                st.metric("Total Bytes Sent", f"{tb_sent/1024/1024:.2f} MB")
                             with col2:
-                                total_bytes_received = summary.get('total_bytes_received', 0)
-                                st.metric("Total Bytes Received", f"{total_bytes_received/1024/1024:.2f} MB")
+                                tb_recv = summary.get('total_bytes_received', 0)
+                                st.metric("Total Bytes Received", f"{tb_recv/1024/1024:.2f} MB")
                             with col3:
                                 total_comm = summary.get("total_communication_overhead", 0)
                                 st.metric("Total Communication", f"{total_comm/1024/1024:.2f} MB")
                             with col4:
                                 if total_rounds > 0:
-                                    avg_comm_per_round = total_comm / total_rounds
-                                    st.metric("Avg Comm/Round", f"{avg_comm_per_round/1024/1024:.2f} MB")
-                            
-                            st.subheader("📋 Per-Round Metrics")
+                                    st.metric("Avg Comm/Round", f"{total_comm/total_rounds/1024/1024:.2f} MB")
 
+                            # HFL-specific: show tier breakdown if available
+                            if st.session_state.fl_architecture == "HFL" and summary.get("tier1_network_overhead"):
+                                st.subheader("🌿 HFL Tier Breakdown")
+                                th1, th2, th3 = st.columns(3)
+                                with th1: st.metric("Tier 1 Network Overhead", f"{summary.get('tier1_network_overhead', 0):.2f}s", help="Client→Nano lag")
+                                with th2: st.metric("Tier 2 Network Overhead", f"{summary.get('tier2_network_overhead', 0):.2f}s", help="Nano→AGX lag")
+                                with th3: st.metric("AGX Uploads/Round", summary.get("agx_uploads_per_round", len(hfl_clusters)), help="Always = #clusters, N-independent")
+
+                            st.subheader("📋 Per-Round Metrics")
                             if per_round:
                                 rounds_data = []
                                 sorted_keys = sorted(per_round.keys(), key=lambda x: int(x.split("_")[1]))
-                                
                                 for r_key in sorted_keys:
-                                    round_num = int(r_key.split("_")[1])
+                                    round_num  = int(r_key.split("_")[1])
                                     round_data = per_round[r_key]
-                                    rounds_data.append({
+                                    row = {
                                         "Round": round_num,
                                         "Duration (s)": f"{round_data.get('duration_seconds', 0):.2f}",
                                         "Bytes Sent": f"{round_data.get('bytes_sent', 0):,}",
                                         "Bytes Received": f"{round_data.get('bytes_received', 0):,}",
-                                        "Total Bytes": f"{round_data.get('total_bytes', 0):,}",
                                         "Clients": round_data.get('num_clients_communicated', 0),
                                         "Aggregation Time (s)": f"{round_data.get('aggregation_time', 0):.4f}",
-                                        "Parameters": f"{round_data.get('num_parameters', 0):,}",
-                                    })
-                                
+                                    }
+                                    if st.session_state.fl_architecture == "HFL":
+                                        row["Nano Uploads"] = round_data.get('nano_uploads', len(hfl_clusters))
+                                    rounds_data.append(row)
                                 rounds_df = pd.DataFrame(rounds_data)
                                 st.dataframe(rounds_df, use_container_width=True)
-                                
                                 csv = rounds_df.to_csv(index=False)
-                                st.download_button(
-                                    label="📥 Download Per-Round Metrics as CSV",
-                                    data=csv,
-                                    file_name="fl_per_round_metrics.csv",
-                                    mime="text/csv"
-                                )
-
-                                st.subheader("📈 Visualization Dashboard")
-
-                                if per_round:
-                                    rounds, durations, bytes_sent, bytes_received, total_bytes = [], [], [], [], []
-                                    aggregation_times, num_clients = [], []
-                                    
-                                    sorted_keys = sorted(per_round.keys(), key=lambda x: int(x.split("_")[1]))
-                                    
-                                    for r_key in sorted_keys:
-                                        round_num = int(r_key.split("_")[1])
-                                        round_data = per_round[r_key]
-                                        
-                                        rounds.append(round_num)
-                                        durations.append(round_data.get("duration_seconds", 0))
-                                        bytes_sent.append(round_data.get("bytes_sent", 0))
-                                        bytes_received.append(round_data.get("bytes_received", 0))
-                                        total_bytes.append(round_data.get("total_bytes", 0))
-                                        aggregation_times.append(round_data.get("aggregation_time", 0))
-                                        num_clients.append(round_data.get("num_clients_communicated", 0))
-
-                                    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
-                                    fig.suptitle('Federated Learning Performance Metrics', fontsize=16, fontweight='bold')
-
-                                    ax1.bar(rounds, durations, color='#3498db', alpha=0.8, edgecolor='black')
-                                    ax1.set_xlabel("Round Number", fontsize=12, fontweight='bold')
-                                    ax1.set_ylabel("Duration (seconds)", fontsize=12, fontweight='bold')
-                                    ax1.set_title("Training Duration per Round", fontsize=14, fontweight='bold')
-                                    ax1.grid(True, linestyle='--', alpha=0.3, axis='y')
-                                    ax1.set_xticks(rounds)
-                                    
-                                    for i, (r, d) in enumerate(zip(rounds, durations)):
-                                        ax1.text(r, d, f'{d:.1f}s', ha='center', va='bottom', fontsize=9, fontweight='bold')
-
-                                    width = 0.35
-                                    ax2.bar(rounds, [b/1024/1024 for b in bytes_sent], width, 
-                                            label='Bytes Sent', color='#2ecc71', alpha=0.8, edgecolor='black')
-                                    ax2.bar(rounds, [b/1024/1024 for b in bytes_received], width, 
-                                            bottom=[b/1024/1024 for b in bytes_sent],
-                                            label='Bytes Received', color='#e74c3c', alpha=0.8, edgecolor='black')
-                                    
-                                    ax2.set_xlabel("Round Number", fontsize=12, fontweight='bold')
-                                    ax2.set_ylabel("Communication (MB)", fontsize=12, fontweight='bold')
-                                    ax2.set_title("Communication Overhead (Stacked)", fontsize=14, fontweight='bold')
-                                    ax2.legend(loc='upper right')
-                                    ax2.grid(True, linestyle='--', alpha=0.3, axis='y')
-                                    ax2.set_xticks(rounds)
-                                    
-                                    for i, (r, t) in enumerate(zip(rounds, total_bytes)):
-                                        ax2.text(r, t/1024/1024, f'{t/1024/1024:.2f}MB', 
-                                                ha='center', va='bottom', fontsize=9, fontweight='bold')
-
-                                    ax3.plot(rounds, [t*1000 for t in aggregation_times], 
-                                            marker='o', linewidth=2, markersize=8, color='#9b59b6', 
-                                            markerfacecolor='#e056fd', markeredgecolor='black', markeredgewidth=1.5)
-                                    ax3.set_xlabel("Round Number", fontsize=12, fontweight='bold')
-                                    ax3.set_ylabel("Aggregation Time (ms)", fontsize=12, fontweight='bold')
-                                    ax3.set_title("Server Aggregation Time per Round", fontsize=14, fontweight='bold')
-                                    ax3.grid(True, linestyle='--', alpha=0.3)
-                                    ax3.set_xticks(rounds)
-    
-                                    for r, t in zip(rounds, aggregation_times):
-                                        ax3.annotate(f'{t*1000:.2f}ms', xy=(r, t*1000), 
-                                                    xytext=(0, 10), textcoords='offset points',
-                                                    ha='center', fontsize=9, fontweight='bold',
-                                                    bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.3))
-
-                                    avg_sent = sum(bytes_sent) / len(bytes_sent)
-                                    avg_received = sum(bytes_received) / len(bytes_received)
-                                    
-                                    labels = ['Bytes Sent\n(Server→Clients)', 'Bytes Received\n(Clients→Server)']
-                                    sizes = [avg_sent, avg_received]
-                                    colors = ['#2ecc71', '#e74c3c']
-                                    explode = (0.05, 0.05)
-                                    
-                                    ax4.pie(sizes, explode=explode, labels=labels, colors=colors,
-                                            autopct=lambda pct: f'{pct:.1f}%\n({pct*sum(sizes)/100/1024/1024:.2f}MB)',
-                                            shadow=True, startangle=90, textprops={'fontsize': 11, 'fontweight': 'bold'})
-                                    ax4.set_title("Average Communication Distribution", fontsize=14, fontweight='bold')
-
-                                    plt.tight_layout()
-                                    st.pyplot(fig)
-
-                                    buf_all = io.BytesIO()
-                                    fig.savefig(buf_all, format="png", dpi=300, bbox_inches='tight')
-                                    buf_all.seek(0)
-                                    
-                                    st.download_button(
-                                        label="💾 Download Comprehensive Dashboard as PNG",
-                                        data=buf_all,
-                                        file_name="fl_comprehensive_metrics.png",
-                                        mime="image/png"
-                                    )
-
-                                    st.subheader("📊 Additional Insights")
-                                    
-                                    col1, col2 = st.columns(2)
-                                    
-                                    with col1:
-                                        fig_eff, ax_eff = plt.subplots(figsize=(8, 5))
-                                        comm_efficiency = [tb/d if d > 0 else 0 for tb, d in zip(total_bytes, durations)]
-                                        
-                                        avg_throughput = sum(comm_efficiency) / len(comm_efficiency) if comm_efficiency else 0
-                                        
-                                        ax_eff.axhline(y=avg_throughput/1024, color='#e74c3c', linestyle='--', 
-                                                    linewidth=3, label=f'Average: {avg_throughput/1024:.2f} KB/s', 
-                                                    alpha=0.8)
-                                        
-                                        ax_eff.plot(rounds, [ce/1024 for ce in comm_efficiency], 
-                                                    marker='o', linewidth=2, markersize=8, color='#3498db',
-                                                    markerfacecolor='#5dade2', markeredgecolor='black', 
-                                                    markeredgewidth=1.5, label='Per Round', alpha=0.7)
-                                        
-                                        ax_eff.set_xlabel("Round Number", fontsize=12, fontweight='bold')
-                                        ax_eff.set_ylabel("Throughput (KB/second)", fontsize=12, fontweight='bold')
-                                        ax_eff.set_title("Communication Throughput", fontsize=13, fontweight='bold')
-                                        ax_eff.grid(True, linestyle='--', alpha=0.3)
-                                        ax_eff.set_xticks(rounds)
-                                        ax_eff.legend(loc='best')
-                                        
-                                        from matplotlib.ticker import FormatStrFormatter
-                                        ax_eff.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-                                        
-                                        for r, ce in zip(rounds, comm_efficiency):
-                                            ax_eff.text(r, ce/1024, f'{ce/1024:.2f}', 
-                                                        ha='center', va='bottom', fontsize=8, rotation=0)
-                                        
-                                        ax_eff.text(rounds[-1], avg_throughput/1024, 
-                                                    f' Avg: {avg_throughput/1024:.2f} KB/s',
-                                                    ha='left', va='center', fontsize=10, fontweight='bold',
-                                                    bbox=dict(boxstyle='round,pad=0.5', facecolor='yellow', alpha=0.7))
-                                        
-                                        st.pyplot(fig_eff)
-                                        
-                                        st.metric(
-                                            label="Average Throughput", 
-                                            value=f"{avg_throughput/1024:.2f} KB/s",
-                                            help="Average communication throughput across all rounds"
-                                        )
-
-                                    st.subheader("📊 Enhanced Performance Metrics")
-
-                                    if per_round:
-                                        first_round_key = sorted(per_round.keys(), key=lambda x: int(x.split("_")[1]))[0]
-                                        breakdown = per_round[first_round_key].get('breakdown', {})
-                                        
-                                        if breakdown and breakdown.get('client_training_mean', 0) > 0:
-                                            
-                                            # ============================================
-                                            # UPDATED ROUND 1 METRICS WITH NETWORK OVERHEAD
-                                            # ============================================
-                                            st.markdown("#### 📋 Round 1 System Bottlenecks")
-                                            
-                                            # 1. Get raw values
-                                            train_max = breakdown.get('client_training_max', 0)
-                                            agg_start = breakdown.get('aggregation_start_delay', 0)
-                                            upload_mean = breakdown.get('client_upload_mean', 0)
-                                            straggler = breakdown.get('straggler_effect', 0)
-                                            
-                                            # 2. Calculate the "Hidden" Network Overhead
-                                            network_overhead = max(0, agg_start - train_max)
-                                            
-                                            # 3. Format for display
-                                            upload_display = f"{upload_mean*1000:.4f}ms" if upload_mean < 0.1 else f"{upload_mean:.4f}s"
-                                            overhead_display = f"{network_overhead:.2f}s"
-                                            strag_display = f"{straggler*1000:.2f}ms" if straggler < 1 else f"{straggler:.2f}s"
-
-                                            col1, col2, col3, col4 = st.columns(4)
-                                            
-                                            with col1:
-                                                st.markdown("**Avg Training (Compute)**")
-                                                st.markdown(f"<h2 style='margin:0; color:#2a5298;'>{breakdown.get('client_training_mean', 0):.2f}s</h2>", unsafe_allow_html=True)
-                                                st.caption("Time spent calculating gradients")
-                                            
-                                            with col2:
-                                                st.markdown("**Avg Straggler (Compute)**")
-                                                st.markdown(f"<h2 style='margin:0; color:#e67e22;'>{strag_display}</h2>", unsafe_allow_html=True)
-                                                st.caption("Waiting for slow compute devices")
-                                            
-                                            with col3:
-                                                st.markdown("**Network Overhead (Latency)**")
-                                                st.markdown(f"<h2 style='margin:0; color:#e74c3c;'>{overhead_display}</h2>", unsafe_allow_html=True)
-                                                st.caption("Time wasted transferring models")
-                                            
-                                            with col4:
-                                                st.markdown("**Avg Upload Time**")
-                                                st.markdown(f"<h2 style='margin:0; color:#9b59b6;'>{upload_display}</h2>", unsafe_allow_html=True)
-                                                st.caption("Pure transmission time")
-                                            
-                                            st.markdown("---")
-                                            
-                                            # ============================================
-                                            # Aggregate Across All Rounds
-                                            # ============================================
-                                            all_sync_eff = []
-                                            all_straggler = []
-                                            all_training_mean = []
-                                            all_network_overhead = []
-                                            
-                                            for r_key in sorted(per_round.keys(), key=lambda x: int(x.split("_")[1])):
-                                                bd = per_round[r_key].get('breakdown', {})
-                                                if bd.get('client_training_mean', 0) > 0:
-                                                    all_sync_eff.append(bd['synchronization_efficiency'])
-                                                    all_straggler.append(bd['straggler_effect'])
-                                                    all_training_mean.append(bd['client_training_mean'])
-                                                    
-                                                    # Calculate Network Overhead for this round
-                                                    r_train_max = bd.get('client_training_max', 0)
-                                                    r_agg_start = bd.get('aggregation_start_delay', 0)
-                                                    all_network_overhead.append(max(0, r_agg_start - r_train_max))
-                                            
-                                            if all_sync_eff and len(all_sync_eff) > 1:
-                                                st.markdown("#### 📊 Average Across All Rounds")
-                                                
-                                                col_a, col_b, col_c, col_d = st.columns(4)
-                                                
-                                                with col_a:
-                                                    avg_sync = np.mean(all_sync_eff) * 100
-                                                    st.markdown("**Avg Sync Efficiency**")
-                                                    st.markdown(f"<h2 style='margin:0; color:#27ae60;'>{avg_sync:.1f}%</h2>", unsafe_allow_html=True)
-                                                    st.caption(f"Range: {min(all_sync_eff)*100:.1f}% - {max(all_sync_eff)*100:.1f}%")
-                                                
-                                                with col_b:
-                                                    avg_strag = np.mean(all_straggler)
-                                                    strag_display = f"{avg_strag*1000:.2f}ms" if avg_strag < 1 else f"{avg_strag:.2f}s"
-                                                    st.markdown("**Avg Compute Straggler**")
-                                                    st.markdown(f"<h2 style='margin:0; color:#e67e22;'>{strag_display}</h2>", unsafe_allow_html=True)
-                                                
-                                                with col_c:
-                                                    avg_overhead = np.mean(all_network_overhead)
-                                                    overhead_display = f"{avg_overhead:.2f}s"
-                                                    st.markdown("**Avg Network Overhead**")
-                                                    st.markdown(f"<h2 style='margin:0; color:#e74c3c;'>{overhead_display}</h2>", unsafe_allow_html=True)
-                                                    st.caption("Major bottleneck indicator")
-
-                                                with col_d:
-                                                    avg_training = np.mean(all_training_mean)
-                                                    st.markdown("**Avg Client Training**")
-                                                    st.markdown(f"<h2 style='margin:0; color:#2a5298;'>{avg_training:.2f}s</h2>", unsafe_allow_html=True)
-                                                
-                                                st.markdown("---")
-                                                
-                                                # ============================================
-                                                # Visualization
-                                                # ============================================
-                                                st.markdown("#### 📈 Efficiency Trends")
-                                                
-                                                rounds_list = []
-                                                sync_eff_list = []
-                                                overhead_list = []
-                                                
-                                                for r_key in sorted(per_round.keys(), key=lambda x: int(x.split("_")[1])):
-                                                    round_num = int(r_key.split("_")[1])
-                                                    bd = per_round[r_key].get('breakdown', {})
-                                                    if bd.get('client_training_mean', 0) > 0:
-                                                        rounds_list.append(round_num)
-                                                        sync_eff_list.append(bd['synchronization_efficiency'] * 100)
-                                                        r_train_max = bd.get('client_training_max', 0)
-                                                        r_agg_start = bd.get('aggregation_start_delay', 0)
-                                                        overhead_list.append(max(0, r_agg_start - r_train_max))
-                                                
-                                                if rounds_list:
-                                                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-                                                    
-                                                    # Plot 1: Sync Efficiency
-                                                    ax1.plot(rounds_list, sync_eff_list, marker='o', linewidth=2, 
-                                                            color='#2a5298', markersize=8, markerfacecolor='#5dade2')
-                                                    ax1.axhline(y=80, color='orange', linestyle='--', linewidth=2, 
-                                                                label='Target: 80%', alpha=0.7)
-                                                    ax1.set_xlabel("Round Number", fontsize=12, fontweight='bold')
-                                                    ax1.set_ylabel("Efficiency (%)", fontsize=12, fontweight='bold')
-                                                    ax1.set_title("Synchronization Efficiency", fontsize=14, fontweight='bold')
-                                                    ax1.set_ylim([0, 105])
-                                                    ax1.grid(True, alpha=0.3)
-                                                    ax1.legend()
-                                                    
-                                                    # Plot 2: Network Overhead (THE NEW METRIC)
-                                                    ax2.plot(rounds_list, overhead_list, marker='s', linewidth=2, 
-                                                            color='#e74c3c', markersize=8, markerfacecolor='#f39c12')
-                                                    ax2.set_xlabel("Round Number", fontsize=12, fontweight='bold')
-                                                    ax2.set_ylabel("Time (seconds)", fontsize=12, fontweight='bold')
-                                                    ax2.set_title("Network Overhead (System Lag)", fontsize=14, fontweight='bold')
-                                                    ax2.grid(True, alpha=0.3)
-                                                    
-                                                    for r, o in zip(rounds_list, overhead_list):
-                                                        ax2.text(r, o, f'{o:.1f}s', ha='center', va='bottom', fontsize=9)
-                                                    
-                                                    plt.tight_layout()
-                                                    st.pyplot(fig)
-                                                    
-                                                    # Download button
-                                                    buf = io.BytesIO()
-                                                    fig.savefig(buf, format="png", dpi=300)
-                                                    buf.seek(0)
-                                                    st.download_button(
-                                                        "💾 Download Efficiency Analysis",
-                                                        data=buf,
-                                                        file_name="efficiency_analysis.png",
-                                                        mime="image/png",
-                                                        use_container_width=True
-                                                    )
-                                        else:
-                                            st.info("ℹ️ Enhanced metrics not available. Make sure clients are reporting training times correctly.")
+                                st.download_button("📥 Download Per-Round Metrics as CSV", data=csv,
+                                                   file_name="fl_per_round_metrics.csv", mime="text/csv")
 
                     except subprocess.CalledProcessError as e:
                         st.error(f"Failed to fetch logs from {server_display} ({server_ip})")
@@ -1088,42 +1241,26 @@ with tab1:
 
 with tab2:
     st.markdown("### Fetch Training Images from Client Containers")
-    
     if not st.session_state.clients:
         st.warning("⚠️ No client devices configured. Add devices first.")
     else:
         col1, col2 = st.columns([2, 1])
-        
         with col1:
             client_options = []
-            
             for device in st.session_state.clients:
-                if 'client_ids' in device:
-                    client_list = device['client_ids']
-                else:
-                    client_list = range(device['start'], device['end'] + 1)
-                
+                client_list = device.get('client_ids', range(device.get('start', 1), device.get('end', 1) + 1))
                 for cid in client_list:
-                    client_options.append({
-                        'label': f"{device['display_name']} - Client {cid}",
-                        'device': device,
-                        'client_id': cid
-                    })
-            
+                    client_options.append({'label': f"{device['display_name']} - Client {cid}", 'device': device, 'client_id': cid})
             if client_options:
-                selected_idx = st.selectbox(
-                    "Select Client Container",
-                    range(len(client_options)),
-                    format_func=lambda x: client_options[x]['label']
-                )
+                selected_idx = st.selectbox("Select Client Container", range(len(client_options)),
+                                             format_func=lambda x: client_options[x]['label'])
                 selected_client = client_options[selected_idx]
-        
         with col2:
             if client_options:
-                st.write("") 
+                st.write("")
                 st.caption(f"Device: **{selected_client['device']['display_name']}**")
                 st.caption(f"IP: **{selected_client['device']['ip']}**")
-        
+
         if client_options:
             device = selected_client['device']
             client_id = selected_client['client_id']
@@ -1137,23 +1274,16 @@ with tab2:
                     check=True, capture_output=True, text=True
                 )
                 available_images = [os.path.basename(x.strip()) for x in result.stdout.splitlines() if x.strip()]
-            except subprocess.CalledProcessError:
+            except:
                 available_images = []
 
             if available_images:
-                image_filename = st.selectbox(
-                    "Select Image File",
-                    available_images,
-                    help="Select a PNG image file from the live container"
-                )
+                image_filename = st.selectbox("Select Image File", available_images)
             else:
                 st.warning("⚠️ No PNG images found in the container.")
-                image_filename = st.text_input(
-                    "Image Filename Pattern",
-                    value="Fedavg_LSTM_25clients_train_mape_histogram.png",
-                    help="Enter the PNG file name manually"
-                )
-            
+                image_filename = st.text_input("Image Filename Pattern",
+                                               value="Fedavg_LSTM_25clients_train_mape_histogram.png")
+
             if 'fetched_images' not in st.session_state:
                 st.session_state.fetched_images = []
 
@@ -1165,100 +1295,69 @@ with tab2:
                             ["ssh", "-o", "StrictHostKeyChecking=no",
                              f"{device['hostname']}@{device['ip']}", cat_cmd],
                             check=True, capture_output=True
-                        )                      
+                        )
                         image_bytes = io.BytesIO(result.stdout)
                         img = Image.open(image_bytes)
-
                         st.session_state.fetched_images.append({
-                            'img': img.copy(),
-                            'from': f"{device['display_name']} - Client {client_id}",
+                            'img': img.copy(), 'from': f"{device['display_name']} - Client {client_id}",
                             'filename': image_filename
                         })
-                        st.success(f"✅ Image fetched successfully from {device['display_name']} - Client {client_id}")
-
+                        st.success(f"✅ Image fetched from {device['display_name']} - Client {client_id}")
                     except subprocess.CalledProcessError as e:
-                        st.error(f"❌ Failed to fetch image from container")
+                        st.error("❌ Failed to fetch image from container")
                         with st.expander("Error details"):
                             st.code(e.stderr if e.stderr else str(e))
-            
+
             if st.session_state.fetched_images:
                 st.markdown("---")
                 st.markdown("### Fetched Training Images")
-
                 images_to_show = st.session_state.fetched_images[-2:]
                 cols = st.columns(len(images_to_show))
-                
                 for idx, img_info in enumerate(images_to_show):
                     with cols[idx]:
                         st.markdown(f"**From:** {img_info['from']}")
                         st.image(img_info['img'], width=800)
-
                         buf = io.BytesIO()
                         img_info['img'].save(buf, format="PNG")
                         buf.seek(0)
+                        st.download_button("💾 Download Image", data=buf, file_name=img_info['filename'],
+                                           mime="image/png", key=f"download_{img_info['filename']}_{idx}")
 
-                        st.download_button(
-                            label=f"💾 Download Image",
-                            data=buf,
-                            file_name=img_info['filename'],
-                            mime="image/png",
-                            key=f"download_{img_info['filename']}_{idx}"
-                        )
-
-
-# ==============================================================================
-# TAB 4: INFERENCE TESTING
-# ==============================================================================
 with tab3:
     st.markdown("### 🧪 Server-Side Inference Testing")
     st.info("Run anomaly detection on the server using the pre-existing script and live client thresholds.")
 
-    # 1. Test Configuration
     c1, c2, c3 = st.columns(3)
-    with c1:
-        inf_algo = st.selectbox("Algorithm", ["FedAvg", "FedProx"], index=0)
-    with c2:
-        inf_dataset = st.selectbox("Test Dataset", ["V3S1.csv", "V3S2.csv", "V3S3.csv"])
+    with c1: inf_algo = st.selectbox("Algorithm", ["FedAvg", "FedProx"], index=0)
+    with c2: inf_dataset = st.selectbox("Test Dataset", ["V3S1.csv", "V3S2.csv", "V3S3.csv"])
     with c3:
-        # Default to the number of configured clients
-        default_clients = sum([len(d.get('client_ids', [])) if 'client_ids' in d else (d['end'] - d['start'] + 1) for d in st.session_state.clients])
+        default_clients = sum([len(d.get('client_ids', [])) for d in st.session_state.clients])
         inf_clients = st.number_input("Number of Clients", min_value=1, value=max(1, default_clients))
 
     st.markdown("#### Threshold Configuration")
-    
-    # 2. Auto-Fetch Logic
     col_auto, col_manual = st.columns([1, 3])
     with col_auto:
-        if st.button("🪄 Auto-Fetch Thresholds", help="Pull latest thresholds directly from client containers"):
+        if st.button("🪄 Auto-Fetch Thresholds"):
             if not st.session_state.clients:
                 st.error("No clients configured!")
             else:
                 fetched_thresholds = {}
                 progress_text = st.empty()
-                
                 for device in st.session_state.clients:
-                    if 'client_ids' in device:
-                        c_list = device['client_ids']
-                    else:
-                        c_list = range(device['start'], device['end'] + 1)
-                    
+                    c_list = device.get('client_ids', [])
                     for cid in c_list:
                         progress_text.text(f"Fetching from Client {cid}...")
                         try:
-                            # Read JSON directly from client container
                             cmd = f"ssh -o StrictHostKeyChecking=no {device['hostname']}@{device['ip']} \"docker exec flwr-client{cid} cat /app/src/client_threshold.json\""
                             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                            
                             if result.returncode == 0:
                                 data = json.loads(result.stdout)
                                 fetched_thresholds[cid] = data['threshold_mae']
                             else:
                                 st.warning(f"Client {cid}: No threshold file found.")
                         except Exception as e:
-                            st.warning(f"Client {cid}: Failed to fetch ({str(e)})")
-                
+                            st.warning(f"Client {cid}: Failed ({str(e)})")
                 progress_text.empty()
-                
                 if fetched_thresholds:
                     ordered_values = []
                     missing = []
@@ -1266,195 +1365,126 @@ with tab3:
                         if i in fetched_thresholds:
                             ordered_values.append(str(fetched_thresholds[i]))
                         else:
-                            ordered_values.append("0.05") 
+                            ordered_values.append("0.05")
                             missing.append(i)
-                    
                     st.session_state.auto_threshold_str = ",".join(ordered_values)
-                    
                     if missing:
                         st.warning(f"Missing thresholds for Clients {missing}. Using default 0.05.")
                     else:
                         st.success(f"Successfully fetched {len(fetched_thresholds)} thresholds!")
-    
-    # 3. Threshold Display/Edit
-    default_thresh = st.session_state.get("auto_threshold_str", "0.05," * (inf_clients-1) + "0.05")
-    threshold_input = st.text_area("Thresholds (Comma-Separated)", value=default_thresh, height=70, 
-                                   help="Client 1, Client 2, Client 3...")
 
-# 4. Run Inference
+    default_thresh = st.session_state.get("auto_threshold_str", "0.05," * (inf_clients - 1) + "0.05")
+    threshold_input = st.text_area("Thresholds (Comma-Separated)", value=default_thresh, height=70)
+
     if st.button("▶️ Run Inference Test", type="primary", use_container_width=True):
         if not server_ip:
             st.error("⚠️ No server device selected in 'FL Configuration'!")
         else:
             server_host = AVAILABLE_DEVICES[server_ip]["hostname"]
             server_disp = AVAILABLE_DEVICES[server_ip]["display_name"]
-            
+            container_name = "flwr-global-server" if st.session_state.fl_architecture == "HFL" else "flwr-server_hfl"
+
             with st.status(f"Running inference on {server_disp}...") as status:
                 try:
-                    # Execute inference script
                     cmd_str = f"cd /app/src && python3 inference_test.py --algo {inf_algo} --dataset {inf_dataset} --clients {inf_clients} --thresholds \"{threshold_input.strip()}\""
-                    ssh_run_cmd = f"docker exec flwr-server_hfl sh -c '{cmd_str}'"
-                    
+                    ssh_run_cmd = f"docker exec {container_name} sh -c '{cmd_str}'"
                     status.write(f"Executing: {cmd_str}")
-                    
+
                     result = subprocess.run(
                         ["ssh", "-o", "StrictHostKeyChecking=no", f"{server_host}@{server_ip}", ssh_run_cmd],
                         capture_output=True, text=True
                     )
                     output_log = result.stdout
-                    
+
                     if result.returncode == 0:
                         status.write("Fetching results CSV...")
-                        
                         dataset_name = inf_dataset.replace('.csv', '')
                         csv_file = f'inference_summary_{inf_algo.lower()}_{dataset_name}_{inf_clients}clients.csv'
-                        
-                        # === FIX 1: Delete stale local files to prevent mismatched data ===
+
                         if os.path.exists(csv_file):
                             os.remove(csv_file)
-                        
-                        # Fetch from Docker
-                        cp_res = subprocess.run([
-                            "ssh", "-o", "StrictHostKeyChecking=no", f"{server_host}@{server_ip}", 
-                            f"docker cp flwr-server_hfl:/app/src/{csv_file} /tmp/{csv_file}"
-                        ], capture_output=True, text=True)
-                        
-                        # Fetch to local dashboard
-                        scp_res = subprocess.run([
-                            "scp", "-o", "StrictHostKeyChecking=no", 
-                            f"{server_host}@{server_ip}:/tmp/{csv_file}", csv_file
-                        ], capture_output=True, text=True)
-                        
+
+                        subprocess.run(["ssh", "-o", "StrictHostKeyChecking=no", f"{server_host}@{server_ip}",
+                                        f"docker cp {container_name}:/app/src/{csv_file} /tmp/{csv_file}"], capture_output=True, text=True)
+                        subprocess.run(["scp", "-o", "StrictHostKeyChecking=no",
+                                        f"{server_host}@{server_ip}:/tmp/{csv_file}", csv_file], capture_output=True, text=True)
+
                         if os.path.exists(csv_file):
                             st.success("✅ Inference Complete!")
                             df_res = pd.read_csv(csv_file)
-                            
-                            # === FIX 2: Calculate metrics directly from the Table data ===
-                            # This guarantees the top numbers will ALWAYS match the table below
-                            avg_acc = df_res['accuracy'].mean()
-                            avg_f1 = df_res['f1_score'].mean()
-                            min_f1 = df_res['f1_score'].min()
+
+                            avg_acc  = df_res['accuracy'].mean()
+                            avg_f1   = df_res['f1_score'].mean()
+                            min_f1   = df_res['f1_score'].min()
                             avg_prec = df_res['precision'].mean()
-                            avg_rec = df_res['recall'].mean()
-                            
-                            # Jain's Fairness Index calculated on F1 scores
+                            avg_rec  = df_res['recall'].mean()
                             f1_array = df_res['f1_score'].values
                             jain_index = (np.sum(f1_array)**2) / (len(f1_array) * np.sum(f1_array**2)) if np.sum(f1_array) > 0 else 0
-                            
-                            # ============================================
-                            # Display AGGREGATE metrics (100% matched to table)
-                            # ============================================
-                            st.markdown("#### 📊 Aggregate Performance (Calculated from Table Data)")
-                            m1, m2, m3, m4, m5, m6 = st.columns(6)                
-                            m1.metric("Avg F1-Score", f"{avg_f1:.4f}")
+
+                            st.markdown("#### 📊 Aggregate Performance")
+                            m1, m2, m3, m4, m5, m6 = st.columns(6)
+                            m1.metric("Avg F1-Score",  f"{avg_f1:.4f}")
                             m2.metric("Avg Precision", f"{avg_prec:.4f}")
-                            m3.metric("Avg Recall", f"{avg_rec:.4f}")
-                            m4.metric("Avg Accuracy", f"{avg_acc:.4f}")
+                            m3.metric("Avg Recall",    f"{avg_rec:.4f}")
+                            m4.metric("Avg Accuracy",  f"{avg_acc:.4f}")
                             m5.metric("Min F1 (Worst)", f"{min_f1:.4f}", delta_color="inverse")
-                            m6.metric("Jain's Fairness", f"{jain_index:.4f}", help="1.0 = perfect fairness")
-                            
-                            # ============================================
-                            # Display PER-CLIENT results table
-                            # ============================================
+                            m6.metric("Jain's Fairness", f"{jain_index:.4f}")
+
                             st.markdown("#### 📋 Per-Client Performance")
-                            
                             df_display = df_res.copy()
-                            numeric_cols = ['threshold', 'precision', 'recall', 'f1_score', 'accuracy']
-                            if 'mae_mean' in df_display.columns:
-                                numeric_cols.extend(['mae_mean', 'mae_median', 'mae_max'])
-                            
-                            for col in numeric_cols:
+                            for col in ['threshold', 'precision', 'recall', 'f1_score', 'accuracy']:
                                 if col in df_display.columns:
                                     df_display[col] = df_display[col].round(4)
-                            
-                            st.dataframe(
-                                df_display, 
-                                use_container_width=True,
-                                column_config={
-                                    "client_id": st.column_config.NumberColumn("Client ID", format="%d"),
-                                    "threshold": st.column_config.NumberColumn("Threshold (MAE)", format="%.6f"),
-                                    "TP": st.column_config.NumberColumn("True Positives", format="%d"),
-                                    "FP": st.column_config.NumberColumn("False Positives", format="%d"),
-                                    "TN": st.column_config.NumberColumn("True Negatives", format="%d"),
-                                    "FN": st.column_config.NumberColumn("False Negatives", format="%d"),
-                                }
-                            )
-                            
-                            # ============================================
-                            # Visualization: Compare clients
-                            # ============================================
+                            st.dataframe(df_display, use_container_width=True)
+
                             st.markdown("#### 📈 Client Comparison")
-                            plt.style.use('seaborn-v0_8-darkgrid')
                             fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-                            
-                            # Plot 1: Metrics comparison
-                            ax1 = axes[0]
-                            x = df_res['client_id']
+                            x_pos = np.arange(len(df_res['client_id']))
                             width = 0.2
-                            x_pos = np.arange(len(x))
-                            
+                            ax1 = axes[0]
                             ax1.bar(x_pos - width*1.5, df_res['precision'], width, label='Precision', color='#2a5298')
-                            ax1.bar(x_pos - width*0.5, df_res['recall'], width, label='Recall', color='#27ae60')
-                            ax1.bar(x_pos + width*0.5, df_res['f1_score'], width, label='F1-Score', color='#e67e22')
-                            ax1.bar(x_pos + width*1.5, df_res['accuracy'], width, label='Accuracy', color='#9b59b6')
-                            
-                            ax1.set_xlabel('Client ID', fontsize=12, fontweight='bold')
-                            ax1.set_ylabel('Score', fontsize=12, fontweight='bold')
-                            ax1.set_title('Performance Metrics by Client', fontsize=14, fontweight='bold')
-                            ax1.set_xticks(x_pos)
-                            ax1.set_xticklabels(x)
-                            ax1.legend(loc='lower right', frameon=True)
-                            ax1.set_ylim([0, 1.05])
-                            
-                            # Plot 2: Confusion matrix metrics
+                            ax1.bar(x_pos - width*0.5, df_res['recall'],    width, label='Recall',    color='#27ae60')
+                            ax1.bar(x_pos + width*0.5, df_res['f1_score'],  width, label='F1-Score',  color='#e67e22')
+                            ax1.bar(x_pos + width*1.5, df_res['accuracy'],  width, label='Accuracy',  color='#9b59b6')
+                            ax1.set_xlabel('Client ID'); ax1.set_ylabel('Score')
+                            ax1.set_title('Performance Metrics by Client', fontweight='bold')
+                            ax1.set_xticks(x_pos); ax1.set_xticklabels(df_res['client_id'])
+                            ax1.legend(); ax1.set_ylim([0, 1.05])
+
                             ax2 = axes[1]
                             ax2.bar(x_pos - width, df_res['TP'], width, label='TP', color='#27ae60')
-                            ax2.bar(x_pos, df_res['FP'], width, label='FP', color='#e74c3c')
-                            ax2.bar(x_pos + width, df_res['FN'], width, label='FN', color='#f39c12')
-                            
-                            ax2.set_xlabel('Client ID', fontsize=12, fontweight='bold')
-                            ax2.set_ylabel('Count', fontsize=12, fontweight='bold')
-                            ax2.set_title('Detection Counts by Client', fontsize=14, fontweight='bold')
-                            ax2.set_xticks(x_pos)
-                            ax2.set_xticklabels(x)
-                            ax2.legend(loc='upper right', frameon=True)
-                            
+                            ax2.bar(x_pos,          df_res['FP'], width, label='FP', color='#e74c3c')
+                            ax2.bar(x_pos + width,  df_res['FN'], width, label='FN', color='#f39c12')
+                            ax2.set_xlabel('Client ID'); ax2.set_ylabel('Count')
+                            ax2.set_title('Detection Counts by Client', fontweight='bold')
+                            ax2.set_xticks(x_pos); ax2.set_xticklabels(df_res['client_id'])
+                            ax2.legend()
                             plt.tight_layout()
                             st.pyplot(fig)
-                            
-                            # Download button
+
                             csv_data = df_res.to_csv(index=False)
-                            st.download_button(
-                                "📥 Download Detailed Results (CSV)", 
-                                data=csv_data, file_name=csv_file, mime="text/csv", use_container_width=True
-                            )
+                            st.download_button("📥 Download Results (CSV)", data=csv_data,
+                                               file_name=csv_file, mime="text/csv", use_container_width=True)
                         else:
-                            # === FIX 3: Transparent Error Reporting ===
-                            st.error(f"⚠️ Could not fetch CSV file from Server: `{csv_file}`")
-                            st.info("The table from your previous run was safely deleted to prevent mismatched data. Please verify that `inference_test.py` is generating the exact filename requested above.")
-                            with st.expander("Show Console Output Logs"):
-                                st.code(output_log, language="text")
-                                if cp_res.stderr:
-                                    st.error(f"Copy Error: {cp_res.stderr}")
-                            
+                            st.error(f"⚠️ Could not fetch CSV: `{csv_file}`")
+                            with st.expander("Console Output"):
+                                st.code(output_log)
                     else:
                         st.error("❌ Inference Script Failed")
-                        st.code(output_log, language="text")
+                        st.code(output_log)
                         if result.stderr:
-                            st.error("STDERR:")
-                            st.code(result.stderr, language="text")
+                            st.code(result.stderr)
 
                 except Exception as e:
                     st.error(f"❌ Execution Error: {str(e)}")
                     import traceback
-                    st.code(traceback.format_exc(), language="python")
+                    st.code(traceback.format_exc())
 
 st.markdown("---")
 
 # ==========================================
 # FOOTER
 # ==========================================
-st.markdown("---")
 st.markdown("""
 <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-top: 2rem;">
     <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap;">
@@ -1471,7 +1501,7 @@ st.markdown("""
         <div style="flex: 1; min-width: 250px; margin-bottom: 1rem;">
             <h4 style="color: #1e3c72; margin: 0 0 0.5rem 0;">Project</h4>
             <p style="margin: 0; color: #666; font-size: 0.9rem;">Federated Learning on Edge Devices</p>
-            <p style="margin: 0; color: #666; font-size: 0.9rem;">Version 2.0 (Hybrid) | © 2025</p>
+            <p style="margin: 0; color: #666; font-size: 0.9rem;">Version 3.0 (HFL) | © 2025</p>
         </div>
     </div>
 </div>
